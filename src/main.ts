@@ -77,6 +77,19 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
     'clickhouse.database',
     'event_logger',
   );
+  const clickHouseSkipHealthCheck = configService.get<boolean>(
+    'clickhouse.skipHealthCheck',
+    false,
+  );
+
+  // Redis config
+  const redisEnabled = configService.get<boolean>('redis.enabled', false);
+  const redisHost = configService.get<string>('redis.host', 'localhost');
+  const redisPort = configService.get<number>('redis.port', 6379);
+  const redisSkipHealthCheck = configService.get<boolean>(
+    'redis.skipHealthCheck',
+    false,
+  );
 
   // Buffer config
   const bufferMaxSize = configService.get<number>('buffer.maxSize', 1000);
@@ -120,6 +133,14 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
 |  - URL:                ${pad(clickHouseUrl, 54)}|
 |  - User:               ${pad(clickHouseUser, 54)}|
 |  - Database:           ${pad(clickHouseDatabase, 54)}|
+|  - Skip Health Check:  ${pad(String(clickHouseSkipHealthCheck), 54)}|
++==============================================================================+
+|  REDIS CONFIGURATION                                                         |
+|  ---------------------                                                       |
+|  - Enabled:            ${pad(String(redisEnabled), 54)}|
+|  - Host:               ${pad(redisEnabled ? redisHost : 'N/A (in-memory)', 54)}|
+|  - Port:               ${pad(redisEnabled ? String(redisPort) : 'N/A (in-memory)', 54)}|
+|  - Skip Health Check:  ${pad(String(redisSkipHealthCheck), 54)}|
 +==============================================================================+
 |  BUFFER CONFIGURATION                                                        |
 |  -----------------------                                                     |
