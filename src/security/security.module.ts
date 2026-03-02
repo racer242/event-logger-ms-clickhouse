@@ -13,7 +13,7 @@ export class SecurityModule implements NestModule {
     consumer
       .apply(ApiKeyMiddleware)
       .forRoutes(
-        { path: 'api/v1/*', method: RequestMethod.ALL },
+        { path: 'api/v1/*path', method: RequestMethod.ALL },
         { path: 'health', method: RequestMethod.GET },
       );
   }

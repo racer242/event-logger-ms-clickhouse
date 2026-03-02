@@ -10,7 +10,7 @@ export class ApiKeyMiddleware implements NestMiddleware {
 
   constructor(private readonly configService: ConfigService) {
     const apiKeysConfig = this.configService.get<string>('security.apiKeys', '');
-    this.apiKeys = apiKeysConfig ? apiKeysConfig.split(',').filter(Boolean) : [];
+    this.apiKeys = apiKeysConfig ? String(apiKeysConfig).split(',').filter(Boolean) : [];
     this.apiKeyHeader = this.configService.get<string>('security.apiKeyHeader', 'X-API-Key');
   }
 
