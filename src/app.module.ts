@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { EventsModule } from './events/events.module';
 import { ClickHouseModule } from './clickhouse/clickhouse.module';
 import { ClickHouseDataModule } from './clickhouse/clickhouse-data.module';
 import { RedisModule } from './redis/redis.module';
+import { SecurityModule } from './security/security.module';
 import appConfig from './config/app.config';
 import clickhouseConfig from './config/clickhouse.config';
 import bufferConfig from './config/buffer.config';
@@ -30,12 +30,7 @@ import redisConfig from './config/redis.config';
     ClickHouseModule,
     ClickHouseDataModule,
     EventsModule,
-  ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    SecurityModule,
   ],
 })
 export class AppModule {}

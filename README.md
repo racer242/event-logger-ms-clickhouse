@@ -244,15 +244,39 @@ src/
 ├── queue/               # Очередь и буферизация
 │   └── event-queue.service.ts
 ├── security/            # Безопасность
-│   └── event-sanitizer.ts
+│   ├── api-key.middleware.ts
+│   ├── event-sanitizer.ts
+│   └── security.module.ts
 ├── app.module.ts
 └── main.ts
 ```
 
 ## Безопасность
 
+### API ключи
+
+Для доступа к API требуется передача API ключа в заголовке запроса:
+
+```bash
+# Пример запроса с API ключом
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{"event_type": "activity.completed", ...}'
+```
+
+**Настройка API ключей в .env:**
+
+```bash
+API_KEYS=dev-api-key-12345,prod-api-key-67890
+API_KEY_HEADER=X-API-Key
+```
+
+> **Примечание:** Если `API_KEYS` не указан, все запросы пропускаются без проверки (режим разработки).
+
+### Другие меры безопасности
+
 - Маскирование персональных данных (phone, email, passport, credit_card, password, token)
-- API ключевая аутентификация через заголовок `X-API-Key`
 - Throttling запросов (100 запросов в минуту по умолчанию)
 - Удаление данных пользователя по запросу (152-ФЗ)
 
