@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, IsObject, IsEnum, ValidateNested, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum EventTable {
@@ -67,17 +67,14 @@ export class CreateEventDto {
   session_id?: string;
 
   @IsObject()
-  @ValidateNested()
-  @Type(() => Object)
   payload: Record<string, any>;
 
   @IsOptional()
-  @ValidateNested()
-  @Type(() => DeviceDto)
+  @IsObject()
   device?: DeviceDto;
 
   @IsOptional()
-  @IsDateString()
+  @IsString()
   timestamp?: string;
 
   @IsOptional()
@@ -93,11 +90,11 @@ export class CreateEventDto {
   reward_type?: string;
 
   @IsOptional()
+  @IsNumber()
   reward_amount?: number;
 }
 
 export class BatchEventsDto {
-  @ValidateNested({ each: true })
-  @Type(() => CreateEventDto)
+  @IsObject()
   events: CreateEventDto[];
 }
