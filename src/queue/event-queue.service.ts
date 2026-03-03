@@ -96,8 +96,8 @@ export class EventQueueService implements OnModuleDestroy {
   private determineTable(event: CreateEventDto): 'user_events' | 'crm_events' | 'system_events' {
     const category = event.event_category.toLowerCase();
 
-    // System events
-    if (category.includes('error') || category.includes('system') || event.event_type.startsWith('system.')) {
+    // System events - includes errors, performance, health checks
+    if (category.includes('error') || category.includes('system') || category.includes('performance') || category.includes('health') || event.event_type.startsWith('system.')) {
       return 'system_events';
     }
 

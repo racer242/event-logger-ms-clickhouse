@@ -253,11 +253,9 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_category": "error_api",
     "severity": "high",
     "service_name": "activity-service",
-    "payload": {
-      "error_code": "API_TIMEOUT",
-      "error_message": "External API timeout after 30s",
-      "stack_trace": "Error: Timeout at..."
-    }
+    "error_code": "API_TIMEOUT",
+    "error_message": "External API timeout after 30s",
+    "stack_trace": "Error: Timeout at..."
   }'
 
 # Метрики производительности
@@ -265,14 +263,13 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "performance.metrics",
-    "event_category": "performance",
+    "event_type": "system.performance.metrics",
+    "event_category": "system.performance",
     "severity": "info",
     "service_name": "event-logger",
     "duration_ms": 150,
     "memory_mb": 256,
-    "cpu_percent": 45.5,
-    "payload": { "endpoint": "/api/v1/events", "method": "POST" }
+    "cpu_percent": 45.5
   }'
 
 # Проверка здоровья
@@ -280,11 +277,10 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "health.check",
-    "event_category": "health",
+    "event_type": "system.health.check",
+    "event_category": "system.health",
     "severity": "info",
-    "service_name": "event-logger",
-    "payload": { "status": "healthy", "checks": { "clickhouse": "ok", "redis": "ok" } }
+    "service_name": "event-logger"
   }'
 ```
 
