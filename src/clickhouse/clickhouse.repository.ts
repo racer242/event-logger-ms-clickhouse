@@ -101,7 +101,10 @@ export class ClickHouseRepository implements OnModuleInit {
     private readonly client: ClickHouseClient,
     private readonly configService: ConfigService,
   ) {
-    this.skipHealthCheck = this.configService.get<boolean>('clickhouse.skipHealthCheck', false);
+    this.skipHealthCheck = this.configService.get<boolean>(
+      'clickhouse.skipHealthCheck',
+      false,
+    );
   }
 
   async onModuleInit() {
@@ -113,24 +116,35 @@ export class ClickHouseRepository implements OnModuleInit {
           `ClickHouse unavailable, but continuing due to CLICKHOUSE_SKIP_HEALTH_CHECK=true. Error: ${error.message}`,
         );
       } else {
-        this.logger.error('ClickHouse unavailable and CLICKHOUSE_SKIP_HEALTH_CHECK=false. Exiting...');
+        this.logger.error(
+          'ClickHouse unavailable and CLICKHOUSE_SKIP_HEALTH_CHECK=false. Exiting...',
+        );
         throw error;
       }
     }
   }
 
   private async initializeTables() {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
 
-    // Создаем базу данных если не существует
-    await this.client.exec({
-      query: `CREATE DATABASE IF NOT EXISTS ${database}`,
-    });
+    // Пытаемся создать базу данных если не существует (опционально, может не быть прав)
+    try {
+      await this.client.exec({
+        query: `CREATE DATABASE IF NOT EXISTS ${database}`,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Could not create database "${database}". Assuming it already exists or insufficient privileges. Error: ${error.message}`,
+      );
+    }
 
     // Таблица user_events
     await this.client.exec({
       query: `
-        CREATE TABLE IF NOT EXISTS ${database}.user_events
+        CREATE TABLE IF NOT EXISTS ${database}.\`user_events\`
         (
             event_id UUID DEFAULT generateUUIDv4(),
             timestamp DateTime64(3, 'UTC') DEFAULT now64(3),
@@ -254,8 +268,21 @@ export class ClickHouseRepository implements OnModuleInit {
     this.logger.log('ClickHouse tables initialized');
   }
 
-  async insertUserEvents(events: Omit<UserEvent, 'event_id' | 'timestamp' | 'event_date' | 'event_month' | 'received_at' | 'processed_at'>[]): Promise<void> {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+  async insertUserEvents(
+    events: Omit<
+      UserEvent,
+      | 'event_id'
+      | 'timestamp'
+      | 'event_date'
+      | 'event_month'
+      | 'received_at'
+      | 'processed_at'
+    >[],
+  ): Promise<void> {
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
     await this.client.insert({
       table: `${database}.user_events`,
       values: events,
@@ -263,8 +290,21 @@ export class ClickHouseRepository implements OnModuleInit {
     });
   }
 
-  async insertCrmEvents(events: Omit<CrmEvent, 'event_id' | 'timestamp' | 'event_date' | 'event_month' | 'received_at' | 'processed_at'>[]): Promise<void> {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+  async insertCrmEvents(
+    events: Omit<
+      CrmEvent,
+      | 'event_id'
+      | 'timestamp'
+      | 'event_date'
+      | 'event_month'
+      | 'received_at'
+      | 'processed_at'
+    >[],
+  ): Promise<void> {
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
     await this.client.insert({
       table: `${database}.crm_events`,
       values: events,
@@ -272,8 +312,21 @@ export class ClickHouseRepository implements OnModuleInit {
     });
   }
 
-  async insertSystemEvents(events: Omit<SystemEvent, 'event_id' | 'timestamp' | 'event_date' | 'event_month' | 'received_at' | 'processed_at'>[]): Promise<void> {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+  async insertSystemEvents(
+    events: Omit<
+      SystemEvent,
+      | 'event_id'
+      | 'timestamp'
+      | 'event_date'
+      | 'event_month'
+      | 'received_at'
+      | 'processed_at'
+    >[],
+  ): Promise<void> {
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
     await this.client.insert({
       table: `${database}.system_events`,
       values: events,
@@ -281,8 +334,16 @@ export class ClickHouseRepository implements OnModuleInit {
     });
   }
 
-  async queryEvents<T>(table: string, filters: Record<string, any>, limit: number, offset: number): Promise<T[]> {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+  async queryEvents<T>(
+    table: string,
+    filters: Record<string, any>,
+    limit: number,
+    offset: number,
+  ): Promise<T[]> {
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
     const conditions: string[] = [];
     const params: Record<string, any> = {};
 
@@ -311,7 +372,8 @@ export class ClickHouseRepository implements OnModuleInit {
       params.date_to = filters.date_to;
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const query = `
       SELECT * FROM ${database}.${table}
@@ -330,8 +392,14 @@ export class ClickHouseRepository implements OnModuleInit {
     return (await resultSet.json()) as unknown as T[];
   }
 
-  async countEvents(table: string, filters: Record<string, any>): Promise<number> {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+  async countEvents(
+    table: string,
+    filters: Record<string, any>,
+  ): Promise<number> {
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
     const conditions: string[] = [];
     const params: Record<string, any> = {};
 
@@ -360,7 +428,8 @@ export class ClickHouseRepository implements OnModuleInit {
       params.date_to = filters.date_to;
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const query = `
       SELECT count() as count FROM ${database}.${table}
@@ -378,7 +447,10 @@ export class ClickHouseRepository implements OnModuleInit {
   }
 
   async deleteUserEvents(userId: string): Promise<void> {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
 
     await this.client.exec({
       query: `ALTER TABLE ${database}.user_events DELETE WHERE user_id = {userId:UUID}`,
@@ -396,7 +468,10 @@ export class ClickHouseRepository implements OnModuleInit {
     queue_depth: number;
     avg_processing_time_ms: number;
   }> {
-    const database = this.configService.get<string>('clickhouse.database', 'event_logger');
+    const database = this.configService.get<string>(
+      'clickhouse.database',
+      'event_logger',
+    );
 
     const resultSet = await this.client.query({
       query: `
@@ -409,12 +484,20 @@ export class ClickHouseRepository implements OnModuleInit {
       format: 'JSON',
     });
 
-    const result = await resultSet.json<{ events_received_last_hour: string; avg_processing_time_ms: string }>();
+    const result = await resultSet.json<{
+      events_received_last_hour: string;
+      avg_processing_time_ms: string;
+    }>();
 
     return {
-      events_received_last_hour: parseInt(result[0]?.events_received_last_hour || '0', 10),
+      events_received_last_hour: parseInt(
+        result[0]?.events_received_last_hour || '0',
+        10,
+      ),
       queue_depth: 0, // Queue depth would be tracked separately
-      avg_processing_time_ms: parseFloat(result[0]?.avg_processing_time_ms || '0'),
+      avg_processing_time_ms: parseFloat(
+        result[0]?.avg_processing_time_ms || '0',
+      ),
     };
   }
 
