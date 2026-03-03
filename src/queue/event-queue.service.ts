@@ -32,7 +32,12 @@ export class EventQueueService implements OnModuleDestroy {
     this.startFlushTimer();
   }
 
-  onModuleDestroy() {
+  async onModuleDestroy() {
+    // Flush remaining events before shutdown to prevent data loss
+    this.logger.log('Flushing remaining events before shutdown...');
+    await this.flushAllBuffers();
+    this.logger.log('All events flushed successfully');
+    
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
     }
