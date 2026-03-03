@@ -91,8 +91,9 @@ export class CreateEventDto {
   @IsUUID()
   submission_id?: string;
 
+  @IsOptional()
   @IsObject()
-  payload: Record<string, any>;
+  payload?: Record<string, any>;
 
   @IsOptional()
   @IsObject()
