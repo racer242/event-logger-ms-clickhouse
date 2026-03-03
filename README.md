@@ -187,6 +187,89 @@ docker-compose down
 
 > **Примечание:** Установите `REDIS_SKIP_HEALTH_CHECK=true`, чтобы приложение запускалось даже при недоступности Redis (при включённом Redis).
 
+## События
+
+### user_events - События пользователей
+
+| Событие | Категория | Описание | Обязательные поля |
+|---------|-----------|----------|-------------------|
+| `registration.completed` | registration | Завершение регистрации пользователя | `campaign_id`, `user_id` |
+| `activity.completed` | activity | Завершение активности (рулетка, квиз) | `campaign_id` |
+| `activity.started` | activity | Начало активности | `campaign_id` |
+| `prize.claimed` | prize_electronic, prize_physical | Получение приза | `campaign_id` |
+| `page.viewed` | page_view | Просмотр страницы | `campaign_id` |
+| `receipt.registered` | receipt | Регистрация чека | `campaign_id` |
+| `code.registered` | code | Регистрация кода продукта | `campaign_id` |
+
+**Поля событий user_events:**
+
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `event_type` | string | ✅ | Тип события (например, `activity.completed`) |
+| `event_category` | string | ✅ | Категория события (`activity`, `registration`, `prize_electronic`) |
+| `campaign_id` | UUID | ✅ | ID кампании (требуется для партиционирования) |
+| `user_id` | UUID | ❌ | ID пользователя |
+| `session_id` | UUID | ❌ | ID сессии |
+| `subcampaign_id` | UUID | ❌ | ID подкампании |
+| `activity_id` | UUID | ❌ | ID активности |
+| `payload` | object | ❌ | Дополнительные данные события |
+| `result_status` | string | ❌ | Статус: `success`, `failed`, `abandoned` |
+| `reward_amount` | number | ❌ | Сумма награды |
+| `reward_type` | string | ❌ | Тип награды: `points`, `promo_code`, `money` |
+| `device` | object | ❌ | Информация об устройстве: `{type, os, browser}` |
+
+### crm_events - CRM события
+
+| Событие | Категория | Описание | Обязательные поля |
+|---------|-----------|----------|-------------------|
+| `admin.user.created` | admin_user | Создание пользователя администратором | `admin_id` |
+| `admin.user.updated` | admin_user | Обновление данных пользователя | `admin_id` |
+| `moderation.submission.approved` | moderation | Одобрение заявки модератором | `moderator_id`, `submission_id` |
+| `moderation.submission.rejected` | moderation | Отклонение заявки модератором | `moderator_id`, `submission_id` |
+| `notification.sent` | notification | Отправка уведомления пользователю | - |
+| `integration.api.call` | integration | Вызов внешнего API | - |
+| `security.login.failed` | security | Неудачная попытка входа | - |
+
+**Поля событий crm_events:**
+
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `event_type` | string | ✅ | Тип события (например, `moderation.submission.approved`) |
+| `event_category` | string | ✅ | Категория (`admin_user`, `moderation`, `notification`) |
+| `admin_id` | UUID | ❌ | ID администратора |
+| `moderator_id` | UUID | ❌ | ID модератора |
+| `submission_id` | UUID | ❌ | ID заявки на модерацию |
+| `campaign_id` | UUID | ❌ | ID кампании |
+| `payload` | object | ❌ | Дополнительные данные |
+| `result_status` | string | ❌ | Результат: `success`, `failed`, `pending` |
+
+### system_events - Системные события
+
+| Событие | Категория | Описание | Обязательные поля |
+|---------|-----------|----------|-------------------|
+| `system.error.api` | error_api | Ошибка внешнего API | `error_code`, `error_message` |
+| `system.error.db` | error_db | Ошибка базы данных | `error_code`, `error_message` |
+| `system.error.timeout` | error_timeout | Таймаут операции | `error_code`, `error_message` |
+| `system.performance.metrics` | performance | Метрики производительности | `service_name` |
+| `system.health.check` | health | Проверка здоровья сервиса | `service_name` |
+
+**Поля событий system_events:**
+
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `event_type` | string | ✅ | Тип события (например, `system.error.api`) |
+| `event_category` | string | ✅ | Категория (`error_api`, `performance`, `health`) |
+| `severity` | string | ❌ | Критичность: `critical`, `high`, `medium`, `low`, `info` |
+| `service_name` | string | ✅ | Название сервиса |
+| `error_code` | string | ❌ | Код ошибки |
+| `error_message` | string | ❌ | Сообщение об ошибке |
+| `stack_trace` | string | ❌ | Трассировка стека |
+| `duration_ms` | number | ❌ | Длительность операции (мс) |
+| `memory_mb` | number | ❌ | Использование памяти (МБ) |
+| `cpu_percent` | number | ❌ | Использование CPU (%) |
+| `campaign_id` | UUID | ❌ | ID кампании (для контекста) |
+| `user_id` | UUID | ❌ | ID пользователя (для контекста) |
+
 ## API Endpoints
 
 ### Приём событий
