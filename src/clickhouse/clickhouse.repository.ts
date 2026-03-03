@@ -137,7 +137,7 @@ export class ClickHouseRepository implements OnModuleInit {
       });
     } catch (error) {
       this.logger.warn(
-        `Could not create database "${database}". Assuming it already exists or insufficient privileges. Error: ${error.message}`,
+        `Could not create database "${database}". Assuming it already exists or insufficient privileges.`,
       );
     }
 
@@ -160,9 +160,9 @@ export class ClickHouseRepository implements OnModuleInit {
             event_category LowCardinality(String),
             user_cycle_stage LowCardinality(String),
             payload String,
-            result_status Nullable(LowCardinality(String)),
+            result_status Nullable(String),
             reward_amount Nullable(UInt32),
-            reward_type Nullable(LowCardinality(String)),
+            reward_type Nullable(String),
             device_type LowCardinality(String),
             device_os LowCardinality(String),
             device_browser LowCardinality(String),
