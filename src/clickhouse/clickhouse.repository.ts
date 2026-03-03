@@ -178,7 +178,7 @@ export class ClickHouseRepository implements OnModuleInit {
         PARTITION BY event_month
         ORDER BY (campaign_id, event_type, timestamp)
         PRIMARY KEY (campaign_id, event_type, timestamp)
-        TTL timestamp + INTERVAL 3 YEAR
+        TTL toDateTime(timestamp) + INTERVAL 3 YEAR
         SETTINGS index_granularity = 8192, compress_part_header = true
       `,
     });
@@ -220,7 +220,7 @@ export class ClickHouseRepository implements OnModuleInit {
         PARTITION BY event_month
         ORDER BY (event_category, event_type, timestamp)
         PRIMARY KEY (event_category, event_type, timestamp)
-        TTL timestamp + INTERVAL 3 YEAR
+        TTL toDateTime(timestamp) + INTERVAL 3 YEAR
         SETTINGS index_granularity = 8192, compress_part_header = true
       `,
     });
@@ -260,7 +260,7 @@ export class ClickHouseRepository implements OnModuleInit {
         PARTITION BY event_month
         ORDER BY (severity, event_category, timestamp)
         PRIMARY KEY (severity, event_category, timestamp)
-        TTL timestamp + INTERVAL 1 YEAR
+        TTL toDateTime(timestamp) + INTERVAL 1 YEAR
         SETTINGS index_granularity = 8192, compress_part_header = true
       `,
     });
