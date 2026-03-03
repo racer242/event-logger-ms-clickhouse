@@ -46,6 +46,12 @@ export class EventQueueService implements OnModuleDestroy {
 
   async enqueue(event: CreateEventDto): Promise<{ eventId: string; table: string }> {
     const table = this.determineTable(event);
+    
+    // Validate campaign_id for user_events (required for partitioning)
+    if (table === 'user_events' && !event.campaign_id) {
+      throw new Error('campaign_id is required for user_events');
+    }
+    
     const queuedEvent: QueuedEvent = {
       id: uuidv4(),
       data: event,
@@ -157,13 +163,12 @@ export class EventQueueService implements OnModuleDestroy {
 
   private async insertUserEvents(events: QueuedEvent[]): Promise<void> {
     const userEvents: Omit<UserEvent, 'event_id' | 'timestamp' | 'event_date' | 'event_month' | 'received_at' | 'processed_at'>[] = events.map((e) => {
-      const now = new Date().toISOString();
       const sanitizedPayload = this.sanitizer.sanitize(e.data.payload || {});
 
       return {
         user_id: e.data.user_id || null,
         session_id: e.data.session_id || null,
-        campaign_id: e.data.campaign_id,
+        campaign_id: e.data.campaign_id!,
         subcampaign_id: e.data.subcampaign_id || null,
         portal_id: e.data.portal_id || null,
         activity_id: e.data.activity_id || null,
@@ -177,8 +182,8 @@ export class EventQueueService implements OnModuleDestroy {
         device_type: e.data.device?.type || '',
         device_os: e.data.device?.os || '',
         device_browser: e.data.device?.browser || '',
-        ip_address: '127.0.0.1', // Should be extracted from request
-        user_agent: '', // Should be extracted from request
+        ip_address: '127.0.0.1',
+        user_agent: '',
         source: 'server',
         service_name: 'event-logger',
         instance_id: process.env.HOSTNAME || 'default',
@@ -194,14 +199,14 @@ export class EventQueueService implements OnModuleDestroy {
 
       return {
         user_id: e.data.user_id || null,
-        admin_id: null,
-        moderator_id: null,
+        admin_id: e.data.admin_id || null,
+        moderator_id: e.data.moderator_id || null,
         campaign_id: e.data.campaign_id || null,
         subcampaign_id: e.data.subcampaign_id || null,
         portal_id: e.data.portal_id || null,
         activity_id: e.data.activity_id || null,
-        prize_id: null,
-        submission_id: null,
+        prize_id: e.data.prize_id || null,
+        submission_id: e.data.submission_id || null,
         event_type: e.data.event_type,
         event_category: e.data.event_category,
         resource_type: '',

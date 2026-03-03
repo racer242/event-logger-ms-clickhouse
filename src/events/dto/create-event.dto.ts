@@ -47,8 +47,9 @@ export class CreateEventDto {
   @IsUUID()
   user_id?: string;
 
+  @IsOptional()
   @IsUUID()
-  campaign_id: string;
+  campaign_id?: string;
 
   @IsOptional()
   @IsUUID()
@@ -65,6 +66,22 @@ export class CreateEventDto {
   @IsOptional()
   @IsUUID()
   session_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  admin_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  moderator_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  prize_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  submission_id?: string;
 
   @IsObject()
   payload: Record<string, any>;
