@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum EventTable {
@@ -95,6 +95,8 @@ export class CreateEventDto {
 }
 
 export class BatchEventsDto {
-  @IsObject()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateEventDto)
   events: CreateEventDto[];
 }

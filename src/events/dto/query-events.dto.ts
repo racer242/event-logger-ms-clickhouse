@@ -1,6 +1,5 @@
-import { IsOptional, IsString, IsInt, Min, IsUUID, IsDateString, IsArray, ValidateNested } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, IsUUID, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CreateEventDto } from './create-event.dto';
 
 export class QueryEventsDto {
   @IsString()
@@ -37,11 +36,4 @@ export class QueryEventsDto {
   @IsInt()
   @Min(0)
   offset?: number = 0;
-}
-
-export class BatchEventsDto {
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateEventDto)
-  events: CreateEventDto[];
 }
