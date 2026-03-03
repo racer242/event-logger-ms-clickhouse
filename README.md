@@ -158,6 +158,136 @@ docker-compose down
 }
 ```
 
+### Примеры отправки событий
+
+#### user_events - События пользователей
+
+```bash
+# Регистрация пользователя
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "registration.completed",
+    "event_category": "registration",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "payload": { "registration_method": "phone" }
+  }'
+
+# Участие в активности
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "activity.completed",
+    "event_category": "activity",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "activity_id": "550e8400-e29b-41d4-a716-446655440010",
+    "payload": { "result": "win", "reward_amount": 50 },
+    "device": { "type": "mobile", "os": "iOS 17.0", "browser": "Safari" }
+  }'
+
+# Получение приза
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "prize.claimed",
+    "event_category": "prize_electronic",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "payload": { "prize_type": "promo_code", "prize_value": "PROMO2024" }
+  }'
+```
+
+#### crm_events - CRM события
+
+```bash
+# Действие администратора
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "admin.user.created",
+    "event_category": "admin_user",
+    "admin_id": "550e8400-e29b-41d4-a716-446655440100",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "payload": { "user_id": "550e8400-e29b-41d4-a716-446655440000", "role": "moderator" }
+  }'
+
+# Модерация заявки
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "moderation.submission.approved",
+    "event_category": "moderation",
+    "moderator_id": "550e8400-e29b-41d4-a716-446655440100",
+    "submission_id": "550e8400-e29b-41d4-a716-446655440200",
+    "payload": { "submission_type": "prize_claim" }
+  }'
+
+# Уведомление пользователю
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "notification.sent",
+    "event_category": "notification",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "payload": { "channel": "email", "template": "welcome" }
+  }'
+```
+
+#### system_events - Системные события
+
+```bash
+# Ошибка API
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "system.error.api",
+    "event_category": "error_api",
+    "severity": "high",
+    "service_name": "activity-service",
+    "payload": {
+      "error_code": "API_TIMEOUT",
+      "error_message": "External API timeout after 30s",
+      "stack_trace": "Error: Timeout at..."
+    }
+  }'
+
+# Метрики производительности
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "performance.metrics",
+    "event_category": "performance",
+    "severity": "info",
+    "service_name": "event-logger",
+    "duration_ms": 150,
+    "memory_mb": 256,
+    "cpu_percent": 45.5,
+    "payload": { "endpoint": "/api/v1/events", "method": "POST" }
+  }'
+
+# Проверка здоровья
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "health.check",
+    "event_category": "health",
+    "severity": "info",
+    "service_name": "event-logger",
+    "payload": { "status": "healthy", "checks": { "clickhouse": "ok", "redis": "ok" } }
+  }'
+```
+
 #### `GET /api/v1/events/query` - Запрос событий
 
 Параметры:
