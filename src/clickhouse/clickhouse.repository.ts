@@ -144,7 +144,7 @@ export class ClickHouseRepository implements OnModuleInit {
     // Таблица user_events
     await this.client.exec({
       query: `
-        CREATE TABLE IF NOT EXISTS ${database}.\`user_events\`
+        CREATE TABLE IF NOT EXISTS ${database}.user_events
         (
             event_id UUID DEFAULT generateUUIDv4(),
             timestamp DateTime64(3, 'UTC') DEFAULT now64(3),
@@ -175,7 +175,7 @@ export class ClickHouseRepository implements OnModuleInit {
             processed_at DateTime64(3, 'UTC') DEFAULT now64(3)
         )
         ENGINE = MergeTree()
-        PARTITION BY event_month
+        PARTITION BY campaign_id
         ORDER BY (campaign_id, event_type, timestamp)
         PRIMARY KEY (campaign_id, event_type, timestamp)
         TTL toDateTime(timestamp) + INTERVAL 3 YEAR

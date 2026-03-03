@@ -203,7 +203,7 @@ docker-compose down
 | `event_id` | UUID | Уникальный идентификатор события |
 | `timestamp` | DateTime64(3) | Время события |
 | `event_date` | Date | Дата события |
-| `event_month` | String | Месяц события (для партиционирования) |
+| `event_month` | String | Месяц события (для TTL) |
 | `user_id` | Nullable(UUID) | ID пользователя |
 | `session_id` | Nullable(UUID) | ID сессии |
 | `campaign_id` | UUID | ID кампании |
@@ -225,8 +225,16 @@ docker-compose down
 | `source` | LowCardinality(String) | Источник события (client/server) |
 | `service_name` | LowCardinality(String) | Название сервиса |
 | `instance_id` | String | ID экземпляра сервиса |
-| `received_at` | DateTime64(3) | Время получения событи |
+| `received_at` | DateTime64(3) | Время получения события |
 | `processed_at` | DateTime64(3) | Время обработки события |
+
+**Параметры таблицы:**
+- **ENGINE:** MergeTree()
+- **PARTITION BY:** campaign_id (партиционирование по кампании)
+- **ORDER BY:** (campaign_id, event_type, timestamp)
+- **PRIMARY KEY:** (campaign_id, event_type, timestamp)
+- **TTL:** toDateTime(timestamp) + INTERVAL 3 YEAR (удаление данных старше 3 лет)
+- **SETTINGS:** index_granularity = 8192
 
 ### crm_events
 
@@ -237,7 +245,7 @@ docker-compose down
 | `event_id` | UUID | Уникальный идентификатор события |
 | `timestamp` | DateTime64(3) | Время события |
 | `event_date` | Date | Дата события |
-| `event_month` | String | Месяц события (для партиционирования) |
+| `event_month` | String | Месяц события (для TTL) |
 | `user_id` | Nullable(UUID) | ID пользователя |
 | `admin_id` | Nullable(UUID) | ID администратора |
 | `moderator_id` | Nullable(UUID) | ID модератора |
@@ -262,6 +270,14 @@ docker-compose down
 | `received_at` | DateTime64(3) | Время получения события |
 | `processed_at` | DateTime64(3) | Время обработки события |
 
+**Параметры таблицы:**
+- **ENGINE:** MergeTree()
+- **PARTITION BY:** toYYYYMM(timestamp) (партиционирование по месяцам)
+- **ORDER BY:** (event_category, event_type, timestamp)
+- **PRIMARY KEY:** (event_category, event_type, timestamp)
+- **TTL:** toDateTime(timestamp) + INTERVAL 3 YEAR (удаление данных старше 3 лет)
+- **SETTINGS:** index_granularity = 8192
+
 ### system_events
 
 Хранение технических событий (ошибки, производительность, здоровье сервисов).
@@ -271,7 +287,7 @@ docker-compose down
 | `event_id` | UUID | Уникальный идентификатор события |
 | `timestamp` | DateTime64(3) | Время события |
 | `event_date` | Date | Дата события |
-| `event_month` | String | Месяц события (для партиционирования) |
+| `event_month` | String | Месяц события (для TTL) |
 | `event_type` | LowCardinality(String) | Тип события |
 | `event_category` | LowCardinality(String) | Категория события |
 | `severity` | LowCardinality(String) | Критичность (critical/high/medium/low/info) |
@@ -293,6 +309,14 @@ docker-compose down
 | `source` | LowCardinality(String) | Источник события |
 | `received_at` | DateTime64(3) | Время получения события |
 | `processed_at` | DateTime64(3) | Время обработки события |
+
+**Параметры таблицы:**
+- **ENGINE:** MergeTree()
+- **PARTITION BY:** toYYYYMM(timestamp) (партиционирование по месяцам)
+- **ORDER BY:** (severity, event_category, timestamp)
+- **PRIMARY KEY:** (severity, event_category, timestamp)
+- **TTL:** toDateTime(timestamp) + INTERVAL 1 YEAR (удаление данных старше 1 года)
+- **SETTINGS:** index_granularity = 8192
 
 ## Тесты
 
