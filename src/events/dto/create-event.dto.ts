@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber, IsArray, ValidateNested } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber, IsArray, ValidateNested, IsEnum as IsEnumValidator } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum EventTable {
@@ -20,6 +20,14 @@ export enum ResultStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   ABANDONED = 'abandoned',
+}
+
+export enum Severity {
+  CRITICAL = 'critical',
+  HIGH = 'high',
+  MEDIUM = 'medium',
+  LOW = 'low',
+  INFO = 'info',
 }
 
 export class DeviceDto {
@@ -109,6 +117,39 @@ export class CreateEventDto {
   @IsOptional()
   @IsNumber()
   reward_amount?: number;
+
+  // System events fields
+  @IsOptional()
+  @IsEnumValidator(Severity)
+  severity?: Severity;
+
+  @IsOptional()
+  @IsString()
+  service_name?: string;
+
+  @IsOptional()
+  @IsNumber()
+  duration_ms?: number;
+
+  @IsOptional()
+  @IsNumber()
+  memory_mb?: number;
+
+  @IsOptional()
+  @IsNumber()
+  cpu_percent?: number;
+
+  @IsOptional()
+  @IsString()
+  error_code?: string;
+
+  @IsOptional()
+  @IsString()
+  error_message?: string;
+
+  @IsOptional()
+  @IsString()
+  stack_trace?: string;
 }
 
 export class BatchEventsDto {

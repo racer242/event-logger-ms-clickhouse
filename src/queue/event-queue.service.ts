@@ -228,16 +228,15 @@ export class EventQueueService implements OnModuleDestroy {
   private async insertSystemEvents(events: QueuedEvent[]): Promise<void> {
     const systemEvents: Omit<SystemEvent, 'event_id' | 'timestamp' | 'event_date' | 'event_month' | 'received_at' | 'processed_at'>[] = events.map((e) => {
       const sanitizedPayload = this.sanitizer.sanitize(e.data.payload || {});
-      const severity = this.determineSeverity(e.data);
 
       return {
         event_type: e.data.event_type,
         event_category: e.data.event_category,
-        severity,
-        error_code: e.data.payload?.error_code || null,
-        error_message: e.data.payload?.error_message || null,
-        stack_trace: e.data.payload?.stack_trace || null,
-        service_name: 'event-logger',
+        severity: e.data.severity || 'info',
+        error_code: e.data.error_code || null,
+        error_message: e.data.error_message || null,
+        stack_trace: e.data.stack_trace || null,
+        service_name: e.data.service_name || 'event-logger',
         instance_id: process.env.HOSTNAME || 'default',
         host_name: process.env.HOSTNAME || 'localhost',
         operation_type: null,
@@ -245,22 +244,15 @@ export class EventQueueService implements OnModuleDestroy {
         resource_id: null,
         campaign_id: e.data.campaign_id || null,
         user_id: e.data.user_id || null,
-        duration_ms: e.data.payload?.duration_ms || null,
-        memory_mb: null,
-        cpu_percent: null,
+        duration_ms: e.data.duration_ms || null,
+        memory_mb: e.data.memory_mb || null,
+        cpu_percent: e.data.cpu_percent || null,
         payload: JSON.stringify(sanitizedPayload),
         source: 'server',
       };
     });
 
     await this.clickHouseRepo.insertSystemEvents(systemEvents);
-  }
-
-  private determineSeverity(event: CreateEventDto): string {
-    if (event.event_type.includes('error') || event.event_type.includes('critical')) {
-      return 'high';
-    }
-    return 'info';
   }
 
   getQueueDepth(): { user_events: number; crm_events: number; system_events: number } {
