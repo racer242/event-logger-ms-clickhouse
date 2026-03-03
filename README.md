@@ -195,13 +195,104 @@ docker-compose down
 ## Таблицы ClickHouse
 
 ### user_events
+
 Хранение событий деятельности пользователей (просмотр страниц, регистрация, участие в активностях, получение призов).
 
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `event_id` | UUID | Уникальный идентификатор события |
+| `timestamp` | DateTime64(3) | Время события |
+| `event_date` | Date | Дата события |
+| `event_month` | String | Месяц события (для партиционирования) |
+| `user_id` | Nullable(UUID) | ID пользователя |
+| `session_id` | Nullable(UUID) | ID сессии |
+| `campaign_id` | UUID | ID кампании |
+| `subcampaign_id` | Nullable(UUID) | ID подкампании |
+| `portal_id` | Nullable(UUID) | ID портала |
+| `activity_id` | Nullable(UUID) | ID активности |
+| `event_type` | LowCardinality(String) | Тип события |
+| `event_category` | LowCardinality(String) | Категория события |
+| `user_cycle_stage` | LowCardinality(String) | Этап цикла пользователя |
+| `payload` | String | JSON с данными события |
+| `result_status` | Nullable(String) | Статус результата (success/failed/abandoned) |
+| `reward_amount` | Nullable(UInt32) | Сумма награды |
+| `reward_type` | Nullable(String) | Тип награды |
+| `device_type` | LowCardinality(String) | Тип устройства |
+| `device_os` | LowCardinality(String) | ОС устройства |
+| `device_browser` | LowCardinality(String) | Браузер устройства |
+| `ip_address` | IPv4 | IP-адрес |
+| `user_agent` | String | User-Agent строка |
+| `source` | LowCardinality(String) | Источник события (client/server) |
+| `service_name` | LowCardinality(String) | Название сервиса |
+| `instance_id` | String | ID экземпляра сервиса |
+| `received_at` | DateTime64(3) | Время получения событи |
+| `processed_at` | DateTime64(3) | Время обработки события |
+
 ### crm_events
+
 Хранение событий управления (администрирование, модерация, уведомления, интеграции).
 
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `event_id` | UUID | Уникальный идентификатор события |
+| `timestamp` | DateTime64(3) | Время события |
+| `event_date` | Date | Дата события |
+| `event_month` | String | Месяц события (для партиционирования) |
+| `user_id` | Nullable(UUID) | ID пользователя |
+| `admin_id` | Nullable(UUID) | ID администратора |
+| `moderator_id` | Nullable(UUID) | ID модератора |
+| `campaign_id` | Nullable(UUID) | ID кампании |
+| `subcampaign_id` | Nullable(UUID) | ID подкампании |
+| `portal_id` | Nullable(UUID) | ID портала |
+| `activity_id` | Nullable(UUID) | ID активности |
+| `prize_id` | Nullable(UUID) | ID приза |
+| `submission_id` | Nullable(UUID) | ID заявки |
+| `event_type` | LowCardinality(String) | Тип события |
+| `event_category` | LowCardinality(String) | Категория события |
+| `resource_type` | LowCardinality(String) | Тип ресурса |
+| `payload` | String | JSON с данными события |
+| `action_result` | LowCardinality(String) | Результат действия |
+| `changes_before` | Nullable(String) | JSON данных до изменений |
+| `changes_after` | Nullable(String) | JSON данных после изменений |
+| `ip_address` | IPv4 | IP-адрес |
+| `user_agent` | String | User-Agent строка |
+| `source` | LowCardinality(String) | Источник события |
+| `service_name` | LowCardinality(String) | Название сервиса |
+| `instance_id` | String | ID экземпляра сервиса |
+| `received_at` | DateTime64(3) | Время получения события |
+| `processed_at` | DateTime64(3) | Время обработки события |
+
 ### system_events
+
 Хранение технических событий (ошибки, производительность, здоровье сервисов).
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `event_id` | UUID | Уникальный идентификатор события |
+| `timestamp` | DateTime64(3) | Время события |
+| `event_date` | Date | Дата события |
+| `event_month` | String | Месяц события (для партиционирования) |
+| `event_type` | LowCardinality(String) | Тип события |
+| `event_category` | LowCardinality(String) | Категория события |
+| `severity` | LowCardinality(String) | Критичность (critical/high/medium/low/info) |
+| `error_code` | Nullable(String) | Код ошибки |
+| `error_message` | Nullable(String) | Сообщение об ошибке |
+| `stack_trace` | Nullable(String) | Трассировка стека |
+| `service_name` | LowCardinality(String) | Название сервиса |
+| `instance_id` | String | ID экземпляра сервиса |
+| `host_name` | String | Имя хоста |
+| `operation_type` | Nullable(String) | Тип операции |
+| `resource_type` | Nullable(String) | Тип ресурса |
+| `resource_id` | Nullable(UUID) | ID ресурса |
+| `campaign_id` | Nullable(UUID) | ID кампании |
+| `user_id` | Nullable(UUID) | ID пользователя |
+| `duration_ms` | Nullable(UInt32) | Длительность в мс |
+| `memory_mb` | Nullable(UInt32) | Использование памяти (МБ) |
+| `cpu_percent` | Nullable(Float32) | Использование CPU (%) |
+| `payload` | String | JSON с данными события |
+| `source` | LowCardinality(String) | Источник события |
+| `received_at` | DateTime64(3) | Время получения события |
+| `processed_at` | DateTime64(3) | Время обработки события |
 
 ## Тесты
 
