@@ -207,6 +207,7 @@ docker-compose down
 |------|-----|--------------|----------|
 | `event_type` | string | ✅ | Тип события (например, `activity.completed`) |
 | `event_category` | string | ✅ | Категория события (`activity`, `registration`, `prize_electronic`) |
+| `timestamp` | string | ✅ | **Время события (ISO 8601, например, `2026-03-02T12:00:00.000Z`)** |
 | `campaign_id` | UUID | ✅ | ID кампании (требуется для партиционирования) |
 | `user_id` | UUID | ❌ | ID пользователя |
 | `session_id` | UUID | ❌ | ID сессии |
@@ -236,6 +237,7 @@ docker-compose down
 |------|-----|--------------|----------|
 | `event_type` | string | ✅ | Тип события (например, `moderation.submission.approved`) |
 | `event_category` | string | ✅ | Категория (`admin_user`, `moderation`, `notification`) |
+| `timestamp` | string | ✅ | **Время события (ISO 8601)** |
 | `admin_id` | UUID | ❌ | ID администратора |
 | `moderator_id` | UUID | ❌ | ID модератора |
 | `submission_id` | UUID | ❌ | ID заявки на модерацию |
@@ -261,6 +263,7 @@ docker-compose down
 | `event_category` | string | ✅ | Категория (`error_api`, `performance`, `health`) |
 | `severity` | string | ❌ | Критичность: `critical`, `high`, `medium`, `low`, `info` |
 | `service_name` | string | ✅ | Название сервиса |
+| `timestamp` | string | ✅ | **Время события (ISO 8601)** |
 | `error_code` | string | ❌ | Код ошибки |
 | `error_message` | string | ❌ | Сообщение об ошибке |
 | `stack_trace` | string | ❌ | Трассировка стека |
@@ -329,6 +332,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_category": "registration",
     "user_id": "550e8400-e29b-41d4-a716-446655440000",
     "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "timestamp": "2026-03-02T12:00:00.000Z",
     "payload": { "registration_method": "phone" }
   }'
 
@@ -342,6 +346,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "user_id": "550e8400-e29b-41d4-a716-446655440000",
     "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
     "activity_id": "550e8400-e29b-41d4-a716-446655440010",
+    "timestamp": "2026-03-02T12:05:00.000Z",
     "payload": { "result": "win", "reward_amount": 50 },
     "device": { "type": "mobile", "os": "iOS 17.0", "browser": "Safari" }
   }'
@@ -355,6 +360,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_category": "prize_electronic",
     "user_id": "550e8400-e29b-41d4-a716-446655440000",
     "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "timestamp": "2026-03-02T12:10:00.000Z",
     "payload": { "prize_type": "promo_code", "prize_value": "PROMO2024" }
   }'
 ```
@@ -370,7 +376,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_type": "admin.user.created",
     "event_category": "admin_user",
     "admin_id": "550e8400-e29b-41d4-a716-446655440100",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "timestamp": "2026-03-02T12:15:00.000Z",
     "payload": { "user_id": "550e8400-e29b-41d4-a716-446655440000", "role": "moderator" }
   }'
 
@@ -383,6 +389,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_category": "moderation",
     "moderator_id": "550e8400-e29b-41d4-a716-446655440100",
     "submission_id": "550e8400-e29b-41d4-a716-446655440200",
+    "timestamp": "2026-03-02T12:20:00.000Z",
     "payload": { "submission_type": "prize_claim" }
   }'
 
@@ -394,6 +401,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_type": "notification.sent",
     "event_category": "notification",
     "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2026-03-02T12:25:00.000Z",
     "payload": { "channel": "email", "template": "welcome" }
   }'
 ```
@@ -410,6 +418,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_category": "error_api",
     "severity": "high",
     "service_name": "activity-service",
+    "timestamp": "2026-03-02T12:30:00.000Z",
     "error_code": "API_TIMEOUT",
     "error_message": "External API timeout after 30s",
     "stack_trace": "Error: Timeout at..."
@@ -424,6 +433,7 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_category": "system.performance",
     "severity": "info",
     "service_name": "event-logger",
+    "timestamp": "2026-03-02T12:35:00.000Z",
     "duration_ms": 150,
     "memory_mb": 256,
     "cpu_percent": 45.5
@@ -437,7 +447,8 @@ curl -X POST http://localhost:3000/api/v1/events \
     "event_type": "system.health.check",
     "event_category": "system.health",
     "severity": "info",
-    "service_name": "event-logger"
+    "service_name": "event-logger",
+    "timestamp": "2026-03-02T12:40:00.000Z"
   }'
 ```
 

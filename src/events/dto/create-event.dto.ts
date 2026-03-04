@@ -99,9 +99,8 @@ export class CreateEventDto {
   @IsObject()
   device?: DeviceDto;
 
-  @IsOptional()
   @IsString()
-  timestamp?: string;
+  timestamp: string;
 
   @IsOptional()
   @IsEnum(ResultStatus)

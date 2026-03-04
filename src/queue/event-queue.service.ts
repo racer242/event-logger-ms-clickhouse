@@ -297,6 +297,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       source: 'server',
       service_name: 'event-logger',
       instance_id: process.env.HOSTNAME || 'default',
+      timestamp: e.data.timestamp,
     }));
 
     await this.clickHouseRepo.insertUserEvents(userEvents);
@@ -325,6 +326,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       source: 'server',
       service_name: 'event-logger',
       instance_id: process.env.HOSTNAME || 'default',
+      timestamp: e.data.timestamp,
     }));
 
     await this.clickHouseRepo.insertCrmEvents(crmEvents);
@@ -351,6 +353,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       cpu_percent: e.data.cpu_percent || null,
       payload: JSON.stringify(e.data.payload || {}),
       source: 'server',
+      timestamp: e.data.timestamp,
     }));
 
     await this.clickHouseRepo.insertSystemEvents(systemEvents);
