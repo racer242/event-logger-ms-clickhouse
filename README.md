@@ -285,6 +285,7 @@ docker-compose down
   "event_category": "activity",
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
   "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+  "timestamp": "2026-03-02T12:00:00.000Z",
   "payload": {
     "result": "win",
     "reward_amount": 50
@@ -306,12 +307,14 @@ docker-compose down
       "event_type": "activity.completed",
       "event_category": "activity",
       "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+      "timestamp": "2026-03-02T12:00:00.000Z",
       "payload": { "result": "win" }
     },
     {
       "event_type": "page.viewed",
       "event_category": "page_view",
       "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+      "timestamp": "2026-03-02T12:00:05.000Z",
       "payload": { "page": "/home" }
     }
   ]
