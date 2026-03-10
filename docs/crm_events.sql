@@ -49,8 +49,11 @@ SETTINGS
 ALTER TABLE event_logger.crm_events 
     ADD INDEX idx_crm_user crm_user_id TYPE bloom_filter GRANULARITY 4;
 
-ALTER TABLE event_logger.crm_events 
-    ADD INDEX idx_entity entity_type, entity_id TYPE bloom_filter GRANULARITY 4;
+ALTER TABLE event_logger.crm_events
+    ADD INDEX idx_entity_type entity_type TYPE bloom_filter GRANULARITY 4;
+
+ALTER TABLE event_logger.crm_events
+    ADD INDEX idx_entity_id entity_id TYPE bloom_filter GRANULARITY 4;
 
 ALTER TABLE event_logger.crm_events 
     ADD INDEX idx_campaign campaign_id TYPE bloom_filter GRANULARITY 4;

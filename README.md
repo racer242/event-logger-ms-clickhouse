@@ -689,7 +689,8 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 **Индексы:**
 - `idx_crm_user` — Bloom filter на `crm_user_id`
-- `idx_entity` — Bloom filter на `(entity_type, entity_id)`
+- `idx_entity_type` — Bloom filter на `entity_type`
+- `idx_entity_id` — Bloom filter на `entity_id`
 - `idx_campaign` — Bloom filter на `campaign_id`
 - `idx_session_id` — Bloom filter на `session_id`
 - `idx_action_id` — Bloom filter на `action_type`
