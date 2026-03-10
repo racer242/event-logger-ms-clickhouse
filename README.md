@@ -644,8 +644,8 @@ curl -X POST http://localhost:3000/api/v1/events \
 - **PARTITION BY:** `event_month`
 - **ORDER BY:** `(campaign_id, event_type, timestamp, event_id)`
 - **PRIMARY KEY:** `(campaign_id, event_type, timestamp)`
-- **TTL:** `timestamp + INTERVAL 3 YEAR`
-- **SETTINGS:** `index_granularity = 8192`
+- **TTL:** `toDateTime(timestamp) + INTERVAL 3 YEAR`
+- **SETTINGS:** `index_granularity = 8192, allow_experimental_object_type = 1`
 
 **Индексы:**
 - `idx_user_id` — Bloom filter на `user_id`
@@ -685,8 +685,8 @@ curl -X POST http://localhost:3000/api/v1/events \
 - **PARTITION BY:** `event_month`
 - **ORDER BY:** `(event_type, timestamp, event_id)`
 - **PRIMARY KEY:** `(event_type, timestamp)`
-- **TTL:** `timestamp + INTERVAL 3 YEAR`
-- **SETTINGS:** `index_granularity = 8192`
+- **TTL:** `toDateTime(timestamp) + INTERVAL 3 YEAR`
+- **SETTINGS:** `index_granularity = 8192, allow_experimental_object_type = 1`
 
 **Индексы:**
 - `idx_crm_user` — Bloom filter на `crm_user_id`
@@ -723,8 +723,8 @@ curl -X POST http://localhost:3000/api/v1/events \
 - **PARTITION BY:** `event_month`
 - **ORDER BY:** `(severity, event_type, timestamp, event_id)`
 - **PRIMARY KEY:** `(severity, event_type, timestamp)`
-- **TTL:** `timestamp + INTERVAL 1 YEAR`
-- **SETTINGS:** `index_granularity = 8192`
+- **TTL:** `toDateTime(timestamp) + INTERVAL 1 YEAR`
+- **SETTINGS:** `index_granularity = 8192, allow_experimental_object_type = 1`
 
 **Индексы:**
 - `idx_instance` — Bloom filter на `instance_id`

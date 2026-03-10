@@ -37,10 +37,10 @@ ENGINE = MergeTree()
 PARTITION BY event_month
 ORDER BY (severity, event_type, timestamp, event_id)
 PRIMARY KEY (severity, event_type, timestamp)
-TTL timestamp + INTERVAL 1 YEAR
-SETTINGS 
+TTL toDateTime(timestamp) + INTERVAL 1 YEAR
+SETTINGS
     index_granularity = 8192,
-    compress_part_header = true;
+    allow_experimental_object_type = 1;
 
 -- ============================================
 -- ИНДЕКСЫ
