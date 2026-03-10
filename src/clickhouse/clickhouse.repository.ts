@@ -295,13 +295,6 @@ export class ClickHouseRepository implements OnModuleInit {
     await this.client.exec({
       query: `
         ALTER TABLE ${database}.system_events
-        ADD INDEX IF NOT EXISTS idx_session_id session_id TYPE bloom_filter GRANULARITY 4
-      `,
-    });
-
-    await this.client.exec({
-      query: `
-        ALTER TABLE ${database}.system_events
         ADD INDEX IF NOT EXISTS idx_campaign campaign_id TYPE bloom_filter GRANULARITY 4
       `,
     });
