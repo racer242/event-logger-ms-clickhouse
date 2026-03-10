@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber, IsArray, ValidateNested, IsEnum as IsEnumValidator } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum EventTable {
@@ -7,65 +7,67 @@ export enum EventTable {
   SYSTEM_EVENTS = 'system_events',
 }
 
-export enum UserCycleStage {
-  FAMILIARIZATION = 'ознакомление',
-  REGISTRATION = 'регистрация',
-  PURCHASE = 'покупка',
-  ACTIVITY = 'активность',
-  PRIZE = 'приз',
-  RETURN = 'возврат',
-}
-
-export enum ResultStatus {
-  SUCCESS = 'success',
-  FAILED = 'failed',
-  ABANDONED = 'abandoned',
+export enum Criticality {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
 }
 
 export enum Severity {
-  CRITICAL = 'critical',
-  HIGH = 'high',
-  MEDIUM = 'medium',
-  LOW = 'low',
-  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+  FAILURE = 'failure',
+  UNKNOWN = 'unknown',
 }
 
-export class DeviceDto {
-  @IsOptional()
-  @IsString()
-  type?: string;
+// ============================================
+// USER EVENTS DTO
+// ============================================
 
-  @IsOptional()
+export class UserEventDto {
+  // ПОСТОЯННЫЕ ДАННЫЕ (обязательные)
   @IsString()
-  os?: string;
-
-  @IsOptional()
-  @IsString()
-  browser?: string;
-}
-
-export class CreateEventDto {
-  @IsString()
-  event_type: string;
+  client_id: string;
 
   @IsString()
-  event_category: string;
+  campaign_id: string;
 
-  @IsOptional()
-  @IsUUID()
-  user_id?: string;
+  @IsString()
+  timestamp: string;
 
-  @IsOptional()
-  @IsUUID()
-  campaign_id?: string;
+  @IsString()
+  portal_id: string;
 
+  @IsString()
+  bot_id: string;
+
+  @IsString()
+  session_id: string;
+
+  // ОПЦИОНАЛЬНЫЕ ДАННЫЕ
   @IsOptional()
   @IsUUID()
   subcampaign_id?: string;
 
   @IsOptional()
   @IsUUID()
-  portal_id?: string;
+  user_id?: string;
+
+  @IsOptional()
+  @IsString()
+  user_utm?: string;
+
+  @IsOptional()
+  @IsUUID()
+  crm_user_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  receipt_id?: string;
+
+  @IsOptional()
+  @IsString()
+  code?: string;
 
   @IsOptional()
   @IsUUID()
@@ -73,83 +75,220 @@ export class CreateEventDto {
 
   @IsOptional()
   @IsUUID()
-  session_id?: string;
-
-  @IsOptional()
-  @IsUUID()
-  admin_id?: string;
-
-  @IsOptional()
-  @IsUUID()
-  moderator_id?: string;
-
-  @IsOptional()
-  @IsUUID()
   prize_id?: string;
 
-  @IsOptional()
-  @IsUUID()
-  submission_id?: string;
+  // КЛАССИФИКАЦИЯ СОБЫТИЯ
+  @IsString()
+  event_type: string;
 
+  @IsString()
+  source: string;
+
+  @IsEnum(Criticality)
+  criticality: Criticality;
+
+  // СПЕЦИФИЧЕСКИЕ ДАННЫЕ
   @IsOptional()
   @IsObject()
   payload?: Record<string, any>;
+}
 
-  @IsOptional()
-  @IsObject()
-  device?: DeviceDto;
+// ============================================
+// CRM EVENTS DTO
+// ============================================
+
+export class CrmEventDto {
+  // ПОСТОЯННЫЕ ДАННЫЕ
+  @IsString()
+  client_id: string;
+
+  @IsString()
+  campaign_id: string;
 
   @IsString()
   timestamp: string;
 
+  @IsString()
+  session_id: string;
+
+  @IsUUID()
+  crm_user_id: string;
+
+  @IsString()
+  entity_type: string;
+
+  @IsString()
+  entity_id: string;
+
+  @IsString()
+  action_type: string;
+
+  // КЛАССИФИКАЦИЯ СОБЫТИЯ
+  @IsString()
+  event_type: string;
+
+  @IsString()
+  source: string;
+
+  @IsEnum(Criticality)
+  criticality: Criticality;
+
+  // СПЕЦИФИЧЕСКИЕ ДАННЫЕ
   @IsOptional()
-  @IsEnum(ResultStatus)
-  result_status?: ResultStatus;
+  @IsUUID()
+  subcampaign_id?: string;
+
+  @IsOptional()
+  @IsObject()
+  payload?: Record<string, any>;
+}
+
+// ============================================
+// SYSTEM EVENTS DTO
+// ============================================
+
+export class SystemEventDto {
+  // ПОСТОЯННЫЕ ДАННЫЕ
+  @IsString()
+  client_id: string;
+
+  @IsString()
+  campaign_id: string;
+
+  @IsString()
+  timestamp: string;
+
+  @IsString()
+  instance_id: string;
+
+  // КЛАССИФИКАЦИЯ СОБЫТИЯ
+  @IsString()
+  event_type: string;
+
+  @IsString()
+  source: string;
+
+  @IsEnum(Criticality)
+  criticality: Criticality;
+
+  @IsEnum(Severity)
+  severity: Severity;
+
+  // СПЕЦИФИЧЕСКИЕ ДАННЫЕ (опциональные)
+  @IsOptional()
+  @IsString()
+  subcampaign_id?: string;
 
   @IsOptional()
   @IsString()
-  user_cycle_stage?: string;
-
-  @IsOptional()
-  @IsString()
-  reward_type?: string;
-
-  @IsOptional()
-  @IsNumber()
-  reward_amount?: number;
-
-  // System events fields
-  @IsOptional()
-  @IsEnumValidator(Severity)
-  severity?: Severity;
-
-  @IsOptional()
-  @IsString()
-  service_name?: string;
-
-  @IsOptional()
-  @IsNumber()
-  duration_ms?: number;
-
-  @IsOptional()
-  @IsNumber()
-  memory_mb?: number;
-
-  @IsOptional()
-  @IsNumber()
-  cpu_percent?: number;
+  host_name?: string;
 
   @IsOptional()
   @IsString()
   error_code?: string;
 
   @IsOptional()
+  @IsObject()
+  payload?: Record<string, any>;
+}
+
+// ============================================
+// ОБЪЕДИНЁННЫЙ DTO ДЛЯ API
+// ============================================
+
+export class CreateEventDto {
   @IsString()
-  error_message?: string;
+  client_id: string;
+
+  @IsString()
+  campaign_id: string;
+
+  @IsString()
+  timestamp: string;
+
+  @IsString()
+  session_id: string;
+
+  @IsString()
+  event_type: string;
+
+  @IsString()
+  source: string;
+
+  @IsEnum(Criticality)
+  criticality: Criticality;
 
   @IsOptional()
   @IsString()
-  stack_trace?: string;
+  subcampaign_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  user_id?: string;
+
+  @IsOptional()
+  @IsString()
+  portal_id?: string;
+
+  @IsOptional()
+  @IsString()
+  bot_id?: string;
+
+  @IsOptional()
+  @IsString()
+  user_utm?: string;
+
+  @IsOptional()
+  @IsUUID()
+  crm_user_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  receipt_id?: string;
+
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @IsOptional()
+  @IsUUID()
+  activity_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  prize_id?: string;
+
+  @IsOptional()
+  @IsString()
+  entity_type?: string;
+
+  @IsOptional()
+  @IsString()
+  entity_id?: string;
+
+  @IsOptional()
+  @IsString()
+  action_type?: string;
+
+  @IsOptional()
+  @IsEnum(Severity)
+  severity?: Severity;
+
+  @IsOptional()
+  @IsString()
+  instance_id?: string;
+
+  @IsOptional()
+  @IsString()
+  host_name?: string;
+
+  @IsOptional()
+  @IsString()
+  error_code?: string;
+
+  @IsOptional()
+  @IsObject()
+  payload?: Record<string, any>;
 }
 
 export class BatchEventsDto {

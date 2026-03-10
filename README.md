@@ -14,6 +14,27 @@
 - **Swagger** - документация API
 - **Docker** - контейнеризация приложения
 
+## Архитектура данных
+
+Сервис хранит события в трёх таблицах ClickHouse:
+
+| Таблица | Назначение | Срок хранения |
+|---------|------------|---------------|
+| `user_events` | События активности пользователей (регистрация, авторизация, участие в активностях, получение призов) | 3 года |
+| `crm_events` | CRM-события (действия администраторов, модерация, уведомления) | 3 года |
+| `system_events` | Системные события (ошибки, метрики производительности, health check) | 1 год |
+
+**Партиционирование:** все таблицы партиционируются по `event_month` (YYYYMM).
+
+**Общие обязательные поля для всех таблиц:**
+- `client_id` — ID клиента (агентство может иметь несколько клиентов)
+- `campaign_id` — ID кампании
+- `timestamp` — время события (DateTime64(3, 'UTC'))
+- `session_id` — ID сессии
+- `event_type` — тип события (формат: `category.subcategory.details`)
+- `source` — источник события (название компонента/модуля)
+- `criticality` — критичность события (`low`, `medium`, `high`)
+
 ## Работа с Redis
 
 Сервис поддерживает **гибридный режим работы** с очередью событий:
@@ -189,89 +210,82 @@ docker-compose down
 
 ## События
 
-### user_events - События пользователей
+### Обязательные поля для всех событий
 
-| Событие | Категория | Описание | Обязательные поля |
-|---------|-----------|----------|-------------------|
-| `registration.completed` | registration | Завершение регистрации пользователя | `campaign_id`, `user_id` |
-| `activity.completed` | activity | Завершение активности (рулетка, квиз) | `campaign_id` |
-| `activity.started` | activity | Начало активности | `campaign_id` |
-| `prize.claimed` | prize_electronic, prize_physical | Получение приза | `campaign_id` |
-| `page.viewed` | page_view | Просмотр страницы | `campaign_id` |
-| `receipt.registered` | receipt | Регистрация чека | `campaign_id` |
-| `code.registered` | code | Регистрация кода продукта | `campaign_id` |
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `client_id` | string | ID клиента (агентство может иметь несколько клиентов) |
+| `campaign_id` | string | ID кампании |
+| `timestamp` | string | Время события (ISO 8601, например, `2026-03-02T12:00:00.000Z`) |
+| `session_id` | string | ID сессии |
+| `event_type` | string | Тип события (формат: `category.subcategory.details`) |
+| `source` | string | Источник события (название сервиса) |
+| `criticality` | string | Критичность: `low`, `medium`, `high` |
 
-**Поля событий user_events:**
+### user_events — События пользователей
+
+**Специфичные поля:**
 
 | Поле | Тип | Обязательное | Описание |
 |------|-----|--------------|----------|
-| `event_type` | string | ✅ | Тип события (например, `activity.completed`) |
-| `event_category` | string | ✅ | Категория события (`activity`, `registration`, `prize_electronic`) |
-| `timestamp` | string | ✅ | **Время события (ISO 8601, например, `2026-03-02T12:00:00.000Z`)** |
-| `campaign_id` | UUID | ✅ | ID кампании (требуется для партиционирования) |
-| `user_id` | UUID | ❌ | ID пользователя |
-| `session_id` | UUID | ❌ | ID сессии |
+| `portal_id` | string | ✅ | Портал-источник |
+| `bot_id` | string | ✅ | Чат-бот-источник |
 | `subcampaign_id` | UUID | ❌ | ID подкампании |
+| `user_id` | UUID | ❌ | ID пользователя |
+| `user_utm` | string | ❌ | UTM-метка пользователя |
+| `crm_user_id` | UUID | ❌ | ID пользователя CRM |
+| `receipt_id` | UUID | ❌ | ID чека |
+| `code` | string | ❌ | Код продукта |
 | `activity_id` | UUID | ❌ | ID активности |
-| `payload` | object | ❌ | Дополнительные данные события |
-| `result_status` | string | ❌ | Статус: `success`, `failed`, `abandoned` |
-| `reward_amount` | number | ❌ | Сумма награды |
-| `reward_type` | string | ❌ | Тип награды: `points`, `promo_code`, `money` |
-| `device` | object | ❌ | Информация об устройстве: `{type, os, browser}` |
-
-### crm_events - CRM события
-
-| Событие | Категория | Описание | Обязательные поля |
-|---------|-----------|----------|-------------------|
-| `admin.user.created` | admin_user | Создание пользователя администратором | `admin_id` |
-| `admin.user.updated` | admin_user | Обновление данных пользователя | `admin_id` |
-| `moderation.submission.approved` | moderation | Одобрение заявки модератором | `moderator_id`, `submission_id` |
-| `moderation.submission.rejected` | moderation | Отклонение заявки модератором | `moderator_id`, `submission_id` |
-| `notification.sent` | notification | Отправка уведомления пользователю | - |
-| `integration.api.call` | integration | Вызов внешнего API | - |
-| `security.login.failed` | security | Неудачная попытка входа | - |
-
-**Поля событий crm_events:**
-
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `event_type` | string | ✅ | Тип события (например, `moderation.submission.approved`) |
-| `event_category` | string | ✅ | Категория (`admin_user`, `moderation`, `notification`) |
-| `timestamp` | string | ✅ | **Время события (ISO 8601)** |
-| `admin_id` | UUID | ❌ | ID администратора |
-| `moderator_id` | UUID | ❌ | ID модератора |
-| `submission_id` | UUID | ❌ | ID заявки на модерацию |
-| `campaign_id` | UUID | ❌ | ID кампании |
+| `prize_id` | UUID | ❌ | ID приза |
 | `payload` | object | ❌ | Дополнительные данные |
-| `result_status` | string | ❌ | Результат: `success`, `failed`, `pending` |
 
-### system_events - Системные события
+**Примеры event_type:**
+- `registration.start`, `registration.complete`, `registration.error`
+- `auth.start`, `auth.complete`, `auth.failed`
+- `activity.start`, `activity.complete`, `activity.abandon`
+- `prize.claim`, `prize.issue`, `prize.ship`
+- `page_view.open`, `page_view.leave`
+- `content_interaction.click`, `content_interaction.share`
 
-| Событие | Категория | Описание | Обязательные поля |
-|---------|-----------|----------|-------------------|
-| `system.error.api` | error_api | Ошибка внешнего API | `error_code`, `error_message` |
-| `system.error.db` | error_db | Ошибка базы данных | `error_code`, `error_message` |
-| `system.error.timeout` | error_timeout | Таймаут операции | `error_code`, `error_message` |
-| `system.performance.metrics` | performance | Метрики производительности | `service_name` |
-| `system.health.check` | health | Проверка здоровья сервиса | `service_name` |
+### crm_events — CRM события
 
-**Поля событий system_events:**
+**Специфичные поля:**
 
 | Поле | Тип | Обязательное | Описание |
 |------|-----|--------------|----------|
-| `event_type` | string | ✅ | Тип события (например, `system.error.api`) |
-| `event_category` | string | ✅ | Категория (`error_api`, `performance`, `health`) |
-| `severity` | string | ❌ | Критичность: `critical`, `high`, `medium`, `low`, `info` |
-| `service_name` | string | ✅ | Название сервиса |
-| `timestamp` | string | ✅ | **Время события (ISO 8601)** |
-| `error_code` | string | ❌ | Код ошибки |
-| `error_message` | string | ❌ | Сообщение об ошибке |
-| `stack_trace` | string | ❌ | Трассировка стека |
-| `duration_ms` | number | ❌ | Длительность операции (мс) |
-| `memory_mb` | number | ❌ | Использование памяти (МБ) |
-| `cpu_percent` | number | ❌ | Использование CPU (%) |
-| `campaign_id` | UUID | ❌ | ID кампании (для контекста) |
-| `user_id` | UUID | ❌ | ID пользователя (для контекста) |
+| `crm_user_id` | UUID | ✅ | ID пользователя CRM |
+| `entity_type` | string | ✅ | Тип сущности CRM (user, campaign, prize, etc.) |
+| `entity_id` | string | ✅ | ID сущности CRM |
+| `action_type` | string | ✅ | Тип действия (create, update, delete, moderate) |
+| `subcampaign_id` | UUID | ❌ | ID подкампании |
+| `payload` | object | ❌ | Дополнительные данные |
+
+**Примеры event_type:**
+- `admin.user.create`, `admin.user.update`, `admin.user.block`
+- `moderation.submission.approve`, `moderation.submission.reject`
+- `notification.send`, `notification.email`, `notification.sms`
+- `integration.api.call`, `integration.export`
+- `security.login.fail`, `security.permission.deny`
+
+### system_events — Системные события
+
+**Специфичные поля:**
+
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `instance_id` | string | ✅ | ID инстанса сервиса |
+| `error_code` | string | ✅ | Код события (default: `'none'`) |
+| `severity` | string | ✅ | Важность: `warning`, `error`, `failure` |
+| `subcampaign_id` | string | ❌ | ID подкампании |
+| `host_name` | string | ❌ | Хост источника |
+| `payload` | object | ❌ | Дополнительные данные |
+
+**Примеры event_type:**
+- `system.error.api`, `system.error.db`, `system.error.timeout`
+- `system.performance.metrics`, `system.performance.slow`
+- `system.health.check`, `system.health.degraded`
+- `system.deploy.start`, `system.deploy.complete`
 
 ## API Endpoints
 
@@ -279,21 +293,64 @@ docker-compose down
 
 #### `POST /api/v1/events` - Приём одиночного события
 
+**Пример user_events:**
 ```json
 {
-  "event_type": "activity.completed",
-  "event_category": "activity",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "client_id": "client-001",
   "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session_id": "sess-12345-abcde",
+  "portal_id": "portal-main",
+  "bot_id": "bot-none",
   "timestamp": "2026-03-02T12:00:00.000Z",
+  "event_type": "activity.complete",
+  "source": "activity-service",
+  "criticality": "medium",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "activity_id": "550e8400-e29b-41d4-a716-446655440010",
   "payload": {
     "result": "win",
     "reward_amount": 50
-  },
-  "device": {
-    "type": "mobile",
-    "os": "iOS 17.0",
-    "browser": "Safari"
+  }
+}
+```
+
+**Пример crm_events:**
+```json
+{
+  "client_id": "client-001",
+  "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session_id": "sess-admin-001",
+  "timestamp": "2026-03-02T12:00:00.000Z",
+  "event_type": "admin.user.create",
+  "source": "admin-service",
+  "criticality": "high",
+  "crm_user_id": "550e8400-e29b-41d4-a716-446655440100",
+  "entity_type": "user",
+  "entity_id": "550e8400-e29b-41d4-a716-446655440000",
+  "action_type": "create",
+  "payload": {
+    "role": "moderator"
+  }
+}
+```
+
+**Пример system_events:**
+```json
+{
+  "client_id": "client-001",
+  "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+  "session_id": "sess-system-001",
+  "timestamp": "2026-03-02T12:00:00.000Z",
+  "event_type": "system.error.api",
+  "source": "api-gateway",
+  "criticality": "high",
+  "severity": "error",
+  "instance_id": "instance-prod-01",
+  "error_code": "API_TIMEOUT",
+  "host_name": "api-server-01.example.com",
+  "payload": {
+    "message": "External API timeout after 30s",
+    "duration_ms": 30000
   }
 }
 ```
@@ -304,18 +361,28 @@ docker-compose down
 {
   "events": [
     {
-      "event_type": "activity.completed",
-      "event_category": "activity",
+      "client_id": "client-001",
       "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+      "session_id": "sess-12345-abcde",
+      "portal_id": "portal-main",
+      "bot_id": "bot-none",
       "timestamp": "2026-03-02T12:00:00.000Z",
-      "payload": { "result": "win" }
+      "event_type": "page_view.open",
+      "source": "portal-frontend",
+      "criticality": "low"
     },
     {
-      "event_type": "page.viewed",
-      "event_category": "page_view",
+      "client_id": "client-001",
       "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+      "session_id": "sess-12345-abcde",
+      "portal_id": "portal-main",
+      "bot_id": "bot-none",
       "timestamp": "2026-03-02T12:00:05.000Z",
-      "payload": { "page": "/home" }
+      "event_type": "activity.start",
+      "source": "activity-service",
+      "criticality": "low",
+      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "activity_id": "550e8400-e29b-41d4-a716-446655440010"
     }
   ]
 }
@@ -331,11 +398,16 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "registration.completed",
-    "event_category": "registration",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "client_id": "client-001",
     "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-user-001",
+    "portal_id": "portal-main",
+    "bot_id": "bot-none",
     "timestamp": "2026-03-02T12:00:00.000Z",
+    "event_type": "registration.complete",
+    "source": "auth-service",
+    "criticality": "high",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
     "payload": { "registration_method": "phone" }
   }'
 
@@ -344,27 +416,35 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "activity.completed",
-    "event_category": "activity",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "client_id": "client-001",
     "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
-    "activity_id": "550e8400-e29b-41d4-a716-446655440010",
+    "session_id": "sess-user-001",
+    "portal_id": "portal-main",
+    "bot_id": "bot-none",
     "timestamp": "2026-03-02T12:05:00.000Z",
-    "payload": { "result": "win", "reward_amount": 50 },
-    "device": { "type": "mobile", "os": "iOS 17.0", "browser": "Safari" }
+    "event_type": "activity.complete",
+    "source": "activity-service",
+    "criticality": "medium",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "activity_id": "550e8400-e29b-41d4-a716-446655440010",
+    "payload": { "result": "win", "reward_amount": 50 }
   }'
 
-# Получение приза
+# Просмотр страницы
 curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "prize.claimed",
-    "event_category": "prize_electronic",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "client_id": "client-001",
     "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-user-001",
+    "portal_id": "portal-main",
+    "bot_id": "bot-none",
     "timestamp": "2026-03-02T12:10:00.000Z",
-    "payload": { "prize_type": "promo_code", "prize_value": "PROMO2024" }
+    "event_type": "page_view.open",
+    "source": "portal-frontend",
+    "criticality": "low",
+    "payload": { "page": "/campaign/main" }
   }'
 ```
 
@@ -376,11 +456,18 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "admin.user.created",
-    "event_category": "admin_user",
-    "admin_id": "550e8400-e29b-41d4-a716-446655440100",
+    "client_id": "client-001",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-admin-001",
     "timestamp": "2026-03-02T12:15:00.000Z",
-    "payload": { "user_id": "550e8400-e29b-41d4-a716-446655440000", "role": "moderator" }
+    "event_type": "admin.user.create",
+    "source": "admin-service",
+    "criticality": "high",
+    "crm_user_id": "550e8400-e29b-41d4-a716-446655440100",
+    "entity_type": "user",
+    "entity_id": "550e8400-e29b-41d4-a716-446655440000",
+    "action_type": "create",
+    "payload": { "role": "moderator" }
   }'
 
 # Модерация заявки
@@ -388,11 +475,17 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "moderation.submission.approved",
-    "event_category": "moderation",
-    "moderator_id": "550e8400-e29b-41d4-a716-446655440100",
-    "submission_id": "550e8400-e29b-41d4-a716-446655440200",
+    "client_id": "client-001",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-moderator-001",
     "timestamp": "2026-03-02T12:20:00.000Z",
+    "event_type": "moderation.submission.approve",
+    "source": "moderation-service",
+    "criticality": "high",
+    "crm_user_id": "550e8400-e29b-41d4-a716-446655440100",
+    "entity_type": "submission",
+    "entity_id": "550e8400-e29b-41d4-a716-446655440200",
+    "action_type": "approve",
     "payload": { "submission_type": "prize_claim" }
   }'
 
@@ -401,10 +494,17 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "notification.sent",
-    "event_category": "notification",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "client_id": "client-001",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-notification-001",
     "timestamp": "2026-03-02T12:25:00.000Z",
+    "event_type": "notification.send",
+    "source": "notification-service",
+    "criticality": "medium",
+    "crm_user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "entity_type": "user",
+    "entity_id": "550e8400-e29b-41d4-a716-446655440000",
+    "action_type": "notify",
     "payload": { "channel": "email", "template": "welcome" }
   }'
 ```
@@ -417,14 +517,21 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "system.error.api",
-    "event_category": "error_api",
-    "severity": "high",
-    "service_name": "activity-service",
+    "client_id": "client-001",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-system-001",
     "timestamp": "2026-03-02T12:30:00.000Z",
+    "event_type": "system.error.api",
+    "source": "api-gateway",
+    "criticality": "high",
+    "severity": "error",
+    "instance_id": "instance-prod-01",
     "error_code": "API_TIMEOUT",
-    "error_message": "External API timeout after 30s",
-    "stack_trace": "Error: Timeout at..."
+    "host_name": "api-server-01.example.com",
+    "payload": {
+      "message": "External API timeout after 30s",
+      "duration_ms": 30000
+    }
   }'
 
 # Метрики производительности
@@ -432,14 +539,21 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
-    "event_type": "system.performance.metrics",
-    "event_category": "system.performance",
-    "severity": "info",
-    "service_name": "event-logger",
+    "client_id": "client-001",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-system-001",
     "timestamp": "2026-03-02T12:35:00.000Z",
-    "duration_ms": 150,
-    "memory_mb": 256,
-    "cpu_percent": 45.5
+    "event_type": "system.performance.metrics",
+    "source": "event-logger",
+    "criticality": "low",
+    "severity": "warning",
+    "instance_id": "instance-prod-01",
+    "error_code": "none",
+    "payload": {
+      "duration_ms": 150,
+      "memory_mb": 256,
+      "cpu_percent": 45.5
+    }
   }'
 
 # Проверка здоровья
@@ -447,11 +561,16 @@ curl -X POST http://localhost:3000/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
+    "client_id": "client-001",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-system-001",
+    "timestamp": "2026-03-02T12:40:00.000Z",
     "event_type": "system.health.check",
-    "event_category": "system.health",
-    "severity": "info",
-    "service_name": "event-logger",
-    "timestamp": "2026-03-02T12:40:00.000Z"
+    "source": "event-logger",
+    "criticality": "low",
+    "severity": "warning",
+    "instance_id": "instance-prod-01",
+    "error_code": "none"
   }'
 ```
 
@@ -495,125 +614,134 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 Хранение событий деятельности пользователей (просмотр страниц, регистрация, участие в активностях, получение призов).
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `event_id` | UUID | Уникальный идентификатор события |
-| `timestamp` | DateTime64(3) | Время события |
-| `event_date` | Date | Дата события |
-| `event_month` | String | Месяц события (для TTL) |
-| `user_id` | Nullable(UUID) | ID пользователя |
-| `session_id` | Nullable(UUID) | ID сессии |
-| `campaign_id` | UUID | ID кампании |
-| `subcampaign_id` | Nullable(UUID) | ID подкампании |
-| `portal_id` | Nullable(UUID) | ID портала |
-| `activity_id` | Nullable(UUID) | ID активности |
-| `event_type` | LowCardinality(String) | Тип события |
-| `event_category` | LowCardinality(String) | Категория события |
-| `user_cycle_stage` | LowCardinality(String) | Этап цикла пользователя |
-| `payload` | String | JSON с данными события |
-| `result_status` | Nullable(String) | Статус результата (success/failed/abandoned) |
-| `reward_amount` | Nullable(UInt32) | Сумма награды |
-| `reward_type` | Nullable(String) | Тип награды |
-| `device_type` | LowCardinality(String) | Тип устройства |
-| `device_os` | LowCardinality(String) | ОС устройства |
-| `device_browser` | LowCardinality(String) | Браузер устройства |
-| `ip_address` | IPv4 | IP-адрес |
-| `user_agent` | String | User-Agent строка |
-| `source` | LowCardinality(String) | Источник события (client/server) |
-| `service_name` | LowCardinality(String) | Название сервиса |
-| `instance_id` | String | ID экземпляра сервиса |
-| `received_at` | DateTime64(3) | Время получения события |
-| `processed_at` | DateTime64(3) | Время обработки события |
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `event_id` | UUID | ✅ (auto) | Уникальный идентификатор события |
+| `client_id` | LowCardinality(String) | ✅ | ID клиента |
+| `campaign_id` | LowCardinality(String) | ✅ | ID кампании |
+| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'unknown'`) |
+| `timestamp` | DateTime64(3, 'UTC') | ✅ | Время события |
+| `portal_id` | LowCardinality(String) | ✅ | Портал-источник события (default: `'unknown'`) |
+| `bot_id` | LowCardinality(String) | ✅ | Чат-бот-источник события (default: `'unknown'`) |
+| `session_id` | String | ✅ | ID сессии пользователя |
+| `user_id` | Nullable(UUID) | ❌ | ID пользователя-участника |
+| `user_utm` | Nullable(String) | ❌ | UTM-метка пользователя |
+| `crm_user_id` | Nullable(UUID) | ❌ | ID пользователя CRM |
+| `receipt_id` | Nullable(UUID) | ❌ | ID чека |
+| `code` | Nullable(String) | ❌ | Код продукта |
+| `activity_id` | Nullable(UUID) | ❌ | ID активности |
+| `prize_id` | Nullable(UUID) | ❌ | ID приза |
+| `event_type` | LowCardinality(String) | ✅ | Тип события (например, `registration.complete`) |
+| `source` | LowCardinality(String) | ✅ | Источник события (название сервиса) |
+| `criticality` | LowCardinality(String) | ✅ | Критичность: `low`, `medium`, `high` |
+| `payload` | Object('json') | ❌ | Дополнительные данные (JSON) |
+| `event_date` | Date | ✅ (auto) | Дата события (автоматически) |
+| `event_month` | String | ✅ (auto) | Месяц события (YYYYMM, для партиционирования) |
+| `event_hour` | UInt8 | ✅ (auto) | Час события (0-23) |
 
 **Параметры таблицы:**
 - **ENGINE:** MergeTree()
-- **PARTITION BY:** campaign_id (партиционирование по кампании)
-- **ORDER BY:** (campaign_id, event_type, timestamp)
-- **PRIMARY KEY:** (campaign_id, event_type, timestamp)
-- **TTL:** toDateTime(timestamp) + INTERVAL 3 YEAR (удаление данных старше 3 лет)
-- **SETTINGS:** index_granularity = 8192
+- **PARTITION BY:** `event_month`
+- **ORDER BY:** `(campaign_id, event_type, timestamp, event_id)`
+- **PRIMARY KEY:** `(campaign_id, event_type, timestamp)`
+- **TTL:** `timestamp + INTERVAL 3 YEAR`
+- **SETTINGS:** `index_granularity = 8192`
+
+**Индексы:**
+- `idx_user_id` — Bloom filter на `user_id`
+- `idx_session_id` — Bloom filter на `session_id`
+- `idx_activity_id` — Bloom filter на `activity_id`
+- `idx_prize_id` — Bloom filter на `prize_id`
+- `idx_receipt_id` — Bloom filter на `receipt_id`
+- `idx_payload_json` — Bloom filter на `payload`
+- `idx_timestamp_minmax` — MinMax на `timestamp`
 
 ### crm_events
 
 Хранение событий управления (администрирование, модерация, уведомления, интеграции).
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `event_id` | UUID | Уникальный идентификатор события |
-| `timestamp` | DateTime64(3) | Время события |
-| `event_date` | Date | Дата события |
-| `event_month` | String | Месяц события (для TTL) |
-| `user_id` | Nullable(UUID) | ID пользователя |
-| `admin_id` | Nullable(UUID) | ID администратора |
-| `moderator_id` | Nullable(UUID) | ID модератора |
-| `campaign_id` | Nullable(UUID) | ID кампании |
-| `subcampaign_id` | Nullable(UUID) | ID подкампании |
-| `portal_id` | Nullable(UUID) | ID портала |
-| `activity_id` | Nullable(UUID) | ID активности |
-| `prize_id` | Nullable(UUID) | ID приза |
-| `submission_id` | Nullable(UUID) | ID заявки |
-| `event_type` | LowCardinality(String) | Тип события |
-| `event_category` | LowCardinality(String) | Категория события |
-| `resource_type` | LowCardinality(String) | Тип ресурса |
-| `payload` | String | JSON с данными события |
-| `action_result` | LowCardinality(String) | Результат действия |
-| `changes_before` | Nullable(String) | JSON данных до изменений |
-| `changes_after` | Nullable(String) | JSON данных после изменений |
-| `ip_address` | IPv4 | IP-адрес |
-| `user_agent` | String | User-Agent строка |
-| `source` | LowCardinality(String) | Источник события |
-| `service_name` | LowCardinality(String) | Название сервиса |
-| `instance_id` | String | ID экземпляра сервиса |
-| `received_at` | DateTime64(3) | Время получения события |
-| `processed_at` | DateTime64(3) | Время обработки события |
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `event_id` | UUID | ✅ (auto) | Уникальный идентификатор события |
+| `client_id` | LowCardinality(String) | ✅ | ID клиента |
+| `campaign_id` | LowCardinality(String) | ✅ | ID кампании |
+| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'main'`) |
+| `timestamp` | DateTime64(3, 'UTC') | ✅ | Время события |
+| `session_id` | String | ✅ | ID сессии |
+| `crm_user_id` | UUID | ✅ | ID пользователя CRM |
+| `entity_type` | LowCardinality(String) | ✅ | Тип сущности CRM |
+| `entity_id` | String | ✅ | ID сущности CRM |
+| `action_type` | LowCardinality(String) | ✅ | Тип действия над сущностью |
+| `event_type` | LowCardinality(String) | ✅ | Тип события |
+| `source` | LowCardinality(String) | ✅ | Источник события |
+| `criticality` | LowCardinality(String) | ✅ | Критичность: `low`, `medium`, `high` |
+| `payload` | Object('json') | ❌ | Дополнительные данные (JSON) |
+| `event_date` | Date | ✅ (auto) | Дата события |
+| `event_month` | String | ✅ (auto) | Месяц события (YYYYMM) |
+| `event_hour` | UInt8 | ✅ (auto) | Час события (0-23) |
 
 **Параметры таблицы:**
 - **ENGINE:** MergeTree()
-- **PARTITION BY:** toYYYYMM(timestamp) (партиционирование по месяцам)
-- **ORDER BY:** (event_category, event_type, timestamp)
-- **PRIMARY KEY:** (event_category, event_type, timestamp)
-- **TTL:** toDateTime(timestamp) + INTERVAL 3 YEAR (удаление данных старше 3 лет)
-- **SETTINGS:** index_granularity = 8192
+- **PARTITION BY:** `event_month`
+- **ORDER BY:** `(event_type, timestamp, event_id)`
+- **PRIMARY KEY:** `(event_type, timestamp)`
+- **TTL:** `timestamp + INTERVAL 3 YEAR`
+- **SETTINGS:** `index_granularity = 8192`
+
+**Индексы:**
+- `idx_crm_user` — Bloom filter на `crm_user_id`
+- `idx_entity` — Bloom filter на `(entity_type, entity_id)`
+- `idx_campaign` — Bloom filter на `campaign_id`
+- `idx_session_id` — Bloom filter на `session_id`
+- `idx_action_id` — Bloom filter на `action_type`
 
 ### system_events
 
 Хранение технических событий (ошибки, производительность, здоровье сервисов).
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `event_id` | UUID | Уникальный идентификатор события |
-| `timestamp` | DateTime64(3) | Время события |
-| `event_date` | Date | Дата события |
-| `event_month` | String | Месяц события (для TTL) |
-| `event_type` | LowCardinality(String) | Тип события |
-| `event_category` | LowCardinality(String) | Категория события |
-| `severity` | LowCardinality(String) | Критичность (critical/high/medium/low/info) |
-| `error_code` | Nullable(String) | Код ошибки |
-| `error_message` | Nullable(String) | Сообщение об ошибке |
-| `stack_trace` | Nullable(String) | Трассировка стека |
-| `service_name` | LowCardinality(String) | Название сервиса |
-| `instance_id` | String | ID экземпляра сервиса |
-| `host_name` | String | Имя хоста |
-| `operation_type` | Nullable(String) | Тип операции |
-| `resource_type` | Nullable(String) | Тип ресурса |
-| `resource_id` | Nullable(UUID) | ID ресурса |
-| `campaign_id` | Nullable(UUID) | ID кампании |
-| `user_id` | Nullable(UUID) | ID пользователя |
-| `duration_ms` | Nullable(UInt32) | Длительность в мс |
-| `memory_mb` | Nullable(UInt32) | Использование памяти (МБ) |
-| `cpu_percent` | Nullable(Float32) | Использование CPU (%) |
-| `payload` | String | JSON с данными события |
-| `source` | LowCardinality(String) | Источник события |
-| `received_at` | DateTime64(3) | Время получения события |
-| `processed_at` | DateTime64(3) | Время обработки события |
+| Поле | Тип | Обязательное | Описание |
+|------|-----|--------------|----------|
+| `event_id` | UUID | ✅ (auto) | Уникальный идентификатор события |
+| `client_id` | LowCardinality(String) | ✅ | ID клиента |
+| `campaign_id` | LowCardinality(String) | ✅ | ID кампании |
+| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'unknown'`) |
+| `timestamp` | DateTime64(3, 'UTC') | ✅ | Время события |
+| `instance_id` | LowCardinality(String) | ✅ | ID инстанса источника |
+| `host_name` | Nullable(String) | ❌ | Хост источника |
+| `error_code` | LowCardinality(String) | ✅ | Код события (default: `'none'`) |
+| `event_type` | LowCardinality(String) | ✅ | Тип события |
+| `source` | LowCardinality(String) | ✅ | Источник события |
+| `criticality` | LowCardinality(String) | ✅ | Критичность: `low`, `medium`, `high` |
+| `severity` | LowCardinality(String) | ✅ | Важность: `warning`, `error`, `failure` |
+| `payload` | Object('json') | ❌ | Дополнительные данные (JSON) |
+| `event_date` | Date | ✅ (auto) | Дата события |
+| `event_month` | String | ✅ (auto) | Месяц события (YYYYMM) |
+| `event_hour` | UInt8 | ✅ (auto) | Час события (0-23) |
 
 **Параметры таблицы:**
 - **ENGINE:** MergeTree()
-- **PARTITION BY:** toYYYYMM(timestamp) (партиционирование по месяцам)
-- **ORDER BY:** (severity, event_category, timestamp)
-- **PRIMARY KEY:** (severity, event_category, timestamp)
-- **TTL:** toDateTime(timestamp) + INTERVAL 1 YEAR (удаление данных старше 1 года)
-- **SETTINGS:** index_granularity = 8192
+- **PARTITION BY:** `event_month`
+- **ORDER BY:** `(severity, event_type, timestamp, event_id)`
+- **PRIMARY KEY:** `(severity, event_type, timestamp)`
+- **TTL:** `timestamp + INTERVAL 1 YEAR`
+- **SETTINGS:** `index_granularity = 8192`
+
+**Индексы:**
+- `idx_instance` — Bloom filter на `instance_id`
+- `idx_severity` — Bloom filter на `severity`
+- `idx_error_code` — Bloom filter на `error_code`
+- `idx_session_id` — Bloom filter на `session_id`
+- `idx_campaign` — Bloom filter на `campaign_id`
+
+## Известные проблемы и несоответствия
+
+### Несоответствия между DTO и SQL схемами (требуют внимания)
+
+| Проблема | Описание |
+|----------|----------|
+| ⚠️ | В SQL `user_events.session_id String NOT NULL` (без default), но в DTO нет валидации на обязательность |
+
+> **Примечание:** Рекомендуется добавить валидацию `@IsString()` для поля `session_id` в `UserEventDto` и `CrmEventDto`.
 
 ## Тесты
 

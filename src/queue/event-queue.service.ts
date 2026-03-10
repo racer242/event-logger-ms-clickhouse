@@ -1,9 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import { ClickHouseRepository } from '../clickhouse/clickhouse.repository';
-import { CreateEventDto } from '../events/dto/create-event.dto';
+import { CreateEventDto, UserEventDto, CrmEventDto, SystemEventDto } from '../events/dto/create-event.dto';
 
 export interface QueuedEvent {
   id: string;
@@ -102,11 +102,6 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   async enqueue(event: CreateEventDto): Promise<{ eventId: string; table: string }> {
     const table = this.determineTable(event);
     
-    // Validate campaign_id for user_events (required for partitioning)
-    if (table === 'user_events' && !event.campaign_id) {
-      throw new Error('campaign_id is required for user_events');
-    }
-    
     const queuedEvent: QueuedEvent = {
       id: uuidv4(),
       data: event,
@@ -143,18 +138,13 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private determineTable(event: CreateEventDto): 'user_events' | 'crm_events' | 'system_events' {
-    const category = event.event_category.toLowerCase();
-
-    // System events - includes errors, performance, health checks
-    if (category.includes('error') || category.includes('system') || 
-        category.includes('performance') || category.includes('health') || 
-        event.event_type.startsWith('system.')) {
+    // System events - по наличию severity или event_type начинается с system
+    if (event.severity || event.event_type.startsWith('system.')) {
       return 'system_events';
     }
 
-    // CRM events
-    const crmCategories = ['admin', 'moderation', 'notification', 'integration', 'security', 'fraud'];
-    if (crmCategories.some((c) => category.includes(c))) {
+    // CRM events - по наличию entity_type или crm_user_id
+    if (event.entity_type || event.crm_user_id) {
       return 'crm_events';
     }
 
@@ -275,86 +265,74 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async insertUserEvents(events: QueuedEvent[]): Promise<void> {
-    const userEvents = events.map((e) => ({
-      user_id: e.data.user_id || null,
-      session_id: e.data.session_id || null,
-      campaign_id: e.data.campaign_id!,
-      subcampaign_id: e.data.subcampaign_id || null,
-      portal_id: e.data.portal_id || null,
-      activity_id: e.data.activity_id || null,
-      event_type: e.data.event_type,
-      event_category: e.data.event_category,
-      user_cycle_stage: e.data.user_cycle_stage || '',
-      payload: JSON.stringify(e.data.payload || {}),
-      result_status: e.data.result_status || null,
-      reward_amount: e.data.reward_amount || null,
-      reward_type: e.data.reward_type || null,
-      device_type: e.data.device?.type || '',
-      device_os: e.data.device?.os || '',
-      device_browser: e.data.device?.browser || '',
-      ip_address: '127.0.0.1',
-      user_agent: '',
-      source: 'server',
-      service_name: 'event-logger',
-      instance_id: process.env.HOSTNAME || 'default',
-      timestamp: e.data.timestamp,
-    }));
+    const userEvents = events.map((e) => {
+      const data = e.data as UserEventDto;
+      return {
+        client_id: data.client_id,
+        campaign_id: data.campaign_id,
+        subcampaign_id: data.subcampaign_id || 'unknown',
+        timestamp: data.timestamp,
+        portal_id: data.portal_id || 'unknown',
+        bot_id: data.bot_id || 'unknown',
+        session_id: data.session_id,
+        user_id: data.user_id || null,
+        user_utm: data.user_utm || null,
+        crm_user_id: data.crm_user_id || null,
+        receipt_id: data.receipt_id || null,
+        code: data.code || null,
+        activity_id: data.activity_id || null,
+        prize_id: data.prize_id || null,
+        event_type: data.event_type,
+        source: data.source || 'unknown',
+        criticality: data.criticality || 'low',
+        payload: data.payload ? JSON.stringify(data.payload) : '{}',
+      };
+    });
 
     await this.clickHouseRepo.insertUserEvents(userEvents);
   }
 
   private async insertCrmEvents(events: QueuedEvent[]): Promise<void> {
-    const crmEvents = events.map((e) => ({
-      user_id: e.data.user_id || null,
-      admin_id: e.data.admin_id || null,
-      moderator_id: e.data.moderator_id || null,
-      campaign_id: e.data.campaign_id || null,
-      subcampaign_id: e.data.subcampaign_id || null,
-      portal_id: e.data.portal_id || null,
-      activity_id: e.data.activity_id || null,
-      prize_id: e.data.prize_id || null,
-      submission_id: e.data.submission_id || null,
-      event_type: e.data.event_type,
-      event_category: e.data.event_category,
-      resource_type: '',
-      payload: JSON.stringify(e.data.payload || {}),
-      action_result: e.data.result_status || 'pending',
-      changes_before: null,
-      changes_after: null,
-      ip_address: '127.0.0.1',
-      user_agent: '',
-      source: 'server',
-      service_name: 'event-logger',
-      instance_id: process.env.HOSTNAME || 'default',
-      timestamp: e.data.timestamp,
-    }));
+    const crmEvents = events.map((e) => {
+      const data = e.data as CrmEventDto;
+      return {
+        client_id: data.client_id,
+        campaign_id: data.campaign_id,
+        subcampaign_id: data.subcampaign_id || 'main',
+        timestamp: data.timestamp,
+        session_id: data.session_id,
+        crm_user_id: data.crm_user_id,
+        entity_type: data.entity_type,
+        entity_id: data.entity_id,
+        action_type: data.action_type || 'default',
+        event_type: data.event_type,
+        source: data.source || 'unknown',
+        criticality: data.criticality || 'low',
+        payload: data.payload ? JSON.stringify(data.payload) : '{}',
+      };
+    });
 
     await this.clickHouseRepo.insertCrmEvents(crmEvents);
   }
 
   private async insertSystemEvents(events: QueuedEvent[]): Promise<void> {
-    const systemEvents = events.map((e) => ({
-      event_type: e.data.event_type,
-      event_category: e.data.event_category,
-      severity: e.data.severity || 'info',
-      error_code: e.data.error_code || null,
-      error_message: e.data.error_message || null,
-      stack_trace: e.data.stack_trace || null,
-      service_name: e.data.service_name || 'event-logger',
-      instance_id: process.env.HOSTNAME || 'default',
-      host_name: process.env.HOSTNAME || 'localhost',
-      operation_type: null,
-      resource_type: null,
-      resource_id: null,
-      campaign_id: e.data.campaign_id || null,
-      user_id: e.data.user_id || null,
-      duration_ms: e.data.duration_ms || null,
-      memory_mb: e.data.memory_mb || null,
-      cpu_percent: e.data.cpu_percent || null,
-      payload: JSON.stringify(e.data.payload || {}),
-      source: 'server',
-      timestamp: e.data.timestamp,
-    }));
+    const systemEvents = events.map((e) => {
+      const data = e.data as SystemEventDto;
+      return {
+        client_id: data.client_id,
+        campaign_id: data.campaign_id,
+        subcampaign_id: data.subcampaign_id || 'unknown',
+        timestamp: data.timestamp,
+        instance_id: data.instance_id || 'unknown',
+        host_name: data.host_name || null,
+        error_code: data.error_code || 'none',
+        event_type: data.event_type,
+        source: data.source || 'unknown',
+        criticality: data.criticality || 'low',
+        severity: data.severity || 'unknown',
+        payload: data.payload ? JSON.stringify(data.payload) : '{}',
+      };
+    });
 
     await this.clickHouseRepo.insertSystemEvents(systemEvents);
   }

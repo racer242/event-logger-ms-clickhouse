@@ -1,95 +1,7 @@
-import { Inject, Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { ClickHouseClient } from '@clickhouse/client';
 import { CLICKHOUSE_CLIENT } from './clickhouse.constants';
 import { ConfigService } from '@nestjs/config';
-
-export interface UserEvent {
-  event_id: string;
-  timestamp: string;
-  event_date: string;
-  event_month: string;
-  user_id: string | null;
-  session_id: string | null;
-  campaign_id: string;
-  subcampaign_id: string | null;
-  portal_id: string | null;
-  activity_id: string | null;
-  event_type: string;
-  event_category: string;
-  user_cycle_stage: string;
-  payload: string;
-  result_status: string | null;
-  reward_amount: number | null;
-  reward_type: string | null;
-  device_type: string;
-  device_os: string;
-  device_browser: string;
-  ip_address: string;
-  user_agent: string;
-  source: string;
-  service_name: string;
-  instance_id: string;
-  received_at: string;
-  processed_at: string;
-}
-
-export interface CrmEvent {
-  event_id: string;
-  timestamp: string;
-  event_date: string;
-  event_month: string;
-  user_id: string | null;
-  admin_id: string | null;
-  moderator_id: string | null;
-  campaign_id: string | null;
-  subcampaign_id: string | null;
-  portal_id: string | null;
-  activity_id: string | null;
-  prize_id: string | null;
-  submission_id: string | null;
-  event_type: string;
-  event_category: string;
-  resource_type: string;
-  payload: string;
-  action_result: string;
-  changes_before: string | null;
-  changes_after: string | null;
-  ip_address: string;
-  user_agent: string;
-  source: string;
-  service_name: string;
-  instance_id: string;
-  received_at: string;
-  processed_at: string;
-}
-
-export interface SystemEvent {
-  event_id: string;
-  timestamp: string;
-  event_date: string;
-  event_month: string;
-  event_type: string;
-  event_category: string;
-  severity: string;
-  error_code: string | null;
-  error_message: string | null;
-  stack_trace: string | null;
-  service_name: string;
-  instance_id: string;
-  host_name: string;
-  operation_type: string | null;
-  resource_type: string | null;
-  resource_id: string | null;
-  campaign_id: string | null;
-  user_id: string | null;
-  duration_ms: number | null;
-  memory_mb: number | null;
-  cpu_percent: number | null;
-  payload: string;
-  source: string;
-  received_at: string;
-  processed_at: string;
-}
 
 @Injectable()
 export class ClickHouseRepository implements OnModuleInit {
@@ -146,40 +58,98 @@ export class ClickHouseRepository implements OnModuleInit {
       query: `
         CREATE TABLE IF NOT EXISTS ${database}.user_events
         (
-            event_id UUID DEFAULT generateUUIDv4(),
-            timestamp DateTime64(3, 'UTC') DEFAULT now64(3),
-            event_date Date DEFAULT toDate(timestamp),
-            event_month String DEFAULT toYYYYMM(timestamp),
-            user_id Nullable(UUID),
-            session_id Nullable(UUID),
-            campaign_id UUID,
-            subcampaign_id Nullable(UUID),
-            portal_id Nullable(UUID),
-            activity_id Nullable(UUID),
-            event_type LowCardinality(String),
-            event_category LowCardinality(String),
-            user_cycle_stage LowCardinality(String),
-            payload String,
-            result_status Nullable(String),
-            reward_amount Nullable(UInt32),
-            reward_type Nullable(String),
-            device_type LowCardinality(String),
-            device_os LowCardinality(String),
-            device_browser LowCardinality(String),
-            ip_address IPv4,
-            user_agent String,
-            source LowCardinality(String),
-            service_name LowCardinality(String),
-            instance_id String,
-            received_at DateTime64(3, 'UTC') DEFAULT now64(3),
-            processed_at DateTime64(3, 'UTC') DEFAULT now64(3)
+            -- ПОСТОЯННЫЕ ДАННЫЕ (обязательные)
+            event_id        UUID                    DEFAULT generateUUIDv4(),
+            client_id       LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            campaign_id     LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            timestamp       DateTime64(3, 'UTC')    NOT NULL,
+            portal_id       LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            bot_id          LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            session_id      String                  NOT NULL,
+
+            -- ОПЦИОНАЛЬНЫЕ ДАННЫЕ
+            user_id         Nullable(UUID),
+            user_utm        Nullable(String),
+            crm_user_id     Nullable(UUID),
+            receipt_id      Nullable(UUID),
+            code            Nullable(String),
+            activity_id     Nullable(UUID),
+            prize_id        Nullable(UUID),
+
+            -- КЛАССИФИКАЦИЯ СОБЫТИЯ
+            event_type      LowCardinality(String)  NOT NULL,
+            source          LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            criticality     LowCardinality(String)  NOT NULL DEFAULT 'low',
+
+            -- СПЕЦИФИЧЕСКИЕ ДАННЫЕ (payload в JSON)
+            payload         Object('json')          DEFAULT '{}',
+
+            -- СЛУЖЕБНЫЕ ПОЛЯ ДЛЯ ПАРТИЦИОНИРОВАНИЯ
+            event_date      Date                    DEFAULT toDate(timestamp),
+            event_month     String                  DEFAULT toYYYYMM(timestamp),
+            event_hour      UInt8                   DEFAULT toHour(timestamp)
         )
         ENGINE = MergeTree()
-        PARTITION BY campaign_id
-        ORDER BY (campaign_id, event_type, timestamp)
+        PARTITION BY event_month
+        ORDER BY (campaign_id, event_type, timestamp, event_id)
         PRIMARY KEY (campaign_id, event_type, timestamp)
-        TTL toDateTime(timestamp) + INTERVAL 3 YEAR
-        SETTINGS index_granularity = 8192
+        TTL timestamp + INTERVAL 3 YEAR
+        SETTINGS
+            index_granularity = 8192,
+            compress_part_header = true,
+            max_parts_in_total = 100000,
+            max_merge_selecting_sleep_ms = 5000
+      `,
+    });
+
+    // Добавляем индексы для user_events
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_user_id user_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_session_id session_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_activity_id activity_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_prize_id prize_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_receipt_id receipt_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_payload_json payload TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_timestamp_minmax timestamp TYPE minmax GRANULARITY 1
       `,
     });
 
@@ -188,40 +158,75 @@ export class ClickHouseRepository implements OnModuleInit {
       query: `
         CREATE TABLE IF NOT EXISTS ${database}.crm_events
         (
-            event_id UUID DEFAULT generateUUIDv4(),
-            timestamp DateTime64(3, 'UTC') DEFAULT now64(3),
-            event_date Date DEFAULT toDate(timestamp),
-            event_month String DEFAULT toYYYYMM(timestamp),
-            user_id Nullable(UUID),
-            admin_id Nullable(UUID),
-            moderator_id Nullable(UUID),
-            campaign_id Nullable(UUID),
-            subcampaign_id Nullable(UUID),
-            portal_id Nullable(UUID),
-            activity_id Nullable(UUID),
-            prize_id Nullable(UUID),
-            submission_id Nullable(UUID),
-            event_type LowCardinality(String),
-            event_category LowCardinality(String),
-            resource_type LowCardinality(String),
-            payload String,
-            action_result LowCardinality(String),
-            changes_before Nullable(String),
-            changes_after Nullable(String),
-            ip_address IPv4,
-            user_agent String,
-            source LowCardinality(String) DEFAULT 'server',
-            service_name LowCardinality(String),
-            instance_id String,
-            received_at DateTime64(3, 'UTC') DEFAULT now64(3),
-            processed_at DateTime64(3, 'UTC') DEFAULT now64(3)
+            -- ПОСТОЯННЫЕ ДАННЫЕ
+            event_id        UUID                    DEFAULT generateUUIDv4(),
+            client_id       LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            campaign_id     LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'main',
+            timestamp       DateTime64(3, 'UTC')    NOT NULL,
+            session_id      String                  NOT NULL,
+            crm_user_id     UUID                    NOT NULL,
+            entity_type     LowCardinality(String)  NOT NULL,
+            entity_id       String                  NOT NULL,
+            action_type     LowCardinality(String)  NOT NULL DEFAULT 'default',
+
+            -- КЛАССИФИКАЦИЯ СОБЫТИЯ
+            event_type      LowCardinality(String)  NOT NULL,
+            source          LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            criticality     LowCardinality(String)  NOT NULL DEFAULT 'low',
+
+            -- СПЕЦИФИЧЕСКИЕ ДАННЫЕ (payload в JSON)
+            payload         Object('json')          DEFAULT '{}',
+
+            -- СЛУЖЕБНЫЕ ПОЛЯ
+            event_date      Date                    DEFAULT toDate(timestamp),
+            event_month     String                  DEFAULT toYYYYMM(timestamp),
+            event_hour      UInt8                   DEFAULT toHour(timestamp)
         )
         ENGINE = MergeTree()
         PARTITION BY event_month
-        ORDER BY (event_category, event_type, timestamp)
-        PRIMARY KEY (event_category, event_type, timestamp)
-        TTL toDateTime(timestamp) + INTERVAL 3 YEAR
-        SETTINGS index_granularity = 8192
+        ORDER BY (event_type, timestamp, event_id)
+        PRIMARY KEY (event_type, timestamp)
+        TTL timestamp + INTERVAL 3 YEAR
+        SETTINGS
+            index_granularity = 8192,
+            compress_part_header = true
+      `,
+    });
+
+    // Добавляем индексы для crm_events
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.crm_events
+        ADD INDEX IF NOT EXISTS idx_crm_user crm_user_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.crm_events
+        ADD INDEX IF NOT EXISTS idx_entity entity_type, entity_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.crm_events
+        ADD INDEX IF NOT EXISTS idx_campaign campaign_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.crm_events
+        ADD INDEX IF NOT EXISTS idx_session_id session_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.crm_events
+        ADD INDEX IF NOT EXISTS idx_action_id action_type TYPE bloom_filter GRANULARITY 4
       `,
     });
 
@@ -230,38 +235,74 @@ export class ClickHouseRepository implements OnModuleInit {
       query: `
         CREATE TABLE IF NOT EXISTS ${database}.system_events
         (
-            event_id UUID DEFAULT generateUUIDv4(),
-            timestamp DateTime64(3, 'UTC') DEFAULT now64(3),
-            event_date Date DEFAULT toDate(timestamp),
-            event_month String DEFAULT toYYYYMM(timestamp),
-            event_type LowCardinality(String),
-            event_category LowCardinality(String),
-            severity LowCardinality(String),
-            error_code Nullable(String),
-            error_message Nullable(String),
-            stack_trace Nullable(String),
-            service_name LowCardinality(String),
-            instance_id String,
-            host_name String,
-            operation_type Nullable(String),
-            resource_type Nullable(String),
-            resource_id Nullable(UUID),
-            campaign_id Nullable(UUID),
-            user_id Nullable(UUID),
-            duration_ms Nullable(UInt32),
-            memory_mb Nullable(UInt32),
-            cpu_percent Nullable(Float32),
-            payload String,
-            source LowCardinality(String) DEFAULT 'server',
-            received_at DateTime64(3, 'UTC') DEFAULT now64(3),
-            processed_at DateTime64(3, 'UTC') DEFAULT now64(3)
+            -- ПОСТОЯННЫЕ ДАННЫЕ
+            event_id        UUID                    DEFAULT generateUUIDv4(),
+            client_id       LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            campaign_id     LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            timestamp       DateTime64(3, 'UTC')    NOT NULL,
+            instance_id     LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            host_name       Nullable(String),
+            error_code      LowCardinality(String)  NOT NULL DEFAULT 'none',
+
+            -- КЛАССИФИКАЦИЯ СОБЫТИЯ
+            event_type      LowCardinality(String)  NOT NULL,
+            source          LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+            criticality     LowCardinality(String)  NOT NULL DEFAULT 'low',
+            severity        LowCardinality(String)  NOT NULL DEFAULT 'unknown',
+
+            -- СПЕЦИФИЧЕСКИЕ ДАННЫЕ (payload в JSON)
+            payload         Object('json')          DEFAULT '{}',
+
+            -- СЛУЖЕБНЫЕ ПОЛЯ
+            event_date      Date                    DEFAULT toDate(timestamp),
+            event_month     String                  DEFAULT toYYYYMM(timestamp),
+            event_hour      UInt8                   DEFAULT toHour(timestamp)
         )
         ENGINE = MergeTree()
         PARTITION BY event_month
-        ORDER BY (severity, event_category, timestamp)
-        PRIMARY KEY (severity, event_category, timestamp)
-        TTL toDateTime(timestamp) + INTERVAL 1 YEAR
-        SETTINGS index_granularity = 8192
+        ORDER BY (severity, event_type, timestamp, event_id)
+        PRIMARY KEY (severity, event_type, timestamp)
+        TTL timestamp + INTERVAL 1 YEAR
+        SETTINGS
+            index_granularity = 8192,
+            compress_part_header = true
+      `,
+    });
+
+    // Добавляем индексы для system_events
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.system_events
+        ADD INDEX IF NOT EXISTS idx_instance instance_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.system_events
+        ADD INDEX IF NOT EXISTS idx_severity severity TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.system_events
+        ADD INDEX IF NOT EXISTS idx_error_code error_code TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.system_events
+        ADD INDEX IF NOT EXISTS idx_session_id session_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.system_events
+        ADD INDEX IF NOT EXISTS idx_campaign campaign_id TYPE bloom_filter GRANULARITY 4
       `,
     });
 
@@ -269,15 +310,26 @@ export class ClickHouseRepository implements OnModuleInit {
   }
 
   async insertUserEvents(
-    events: Omit<
-      UserEvent,
-      | 'event_id'
-      | 'timestamp'
-      | 'event_date'
-      | 'event_month'
-      | 'received_at'
-      | 'processed_at'
-    >[],
+    events: Array<{
+      client_id: string;
+      campaign_id: string;
+      subcampaign_id: string;
+      timestamp: string;
+      portal_id: string;
+      bot_id: string;
+      session_id: string;
+      user_id: string | null;
+      user_utm: string | null;
+      crm_user_id: string | null;
+      receipt_id: string | null;
+      code: string | null;
+      activity_id: string | null;
+      prize_id: string | null;
+      event_type: string;
+      source: string;
+      criticality: string;
+      payload: string;
+    }>,
   ): Promise<void> {
     const database = this.configService.get<string>(
       'clickhouse.database',
@@ -291,15 +343,21 @@ export class ClickHouseRepository implements OnModuleInit {
   }
 
   async insertCrmEvents(
-    events: Omit<
-      CrmEvent,
-      | 'event_id'
-      | 'timestamp'
-      | 'event_date'
-      | 'event_month'
-      | 'received_at'
-      | 'processed_at'
-    >[],
+    events: Array<{
+      client_id: string;
+      campaign_id: string;
+      subcampaign_id: string;
+      timestamp: string;
+      session_id: string;
+      crm_user_id: string;
+      entity_type: string;
+      entity_id: string;
+      action_type: string;
+      event_type: string;
+      source: string;
+      criticality: string;
+      payload: string;
+    }>,
   ): Promise<void> {
     const database = this.configService.get<string>(
       'clickhouse.database',
@@ -313,15 +371,20 @@ export class ClickHouseRepository implements OnModuleInit {
   }
 
   async insertSystemEvents(
-    events: Omit<
-      SystemEvent,
-      | 'event_id'
-      | 'timestamp'
-      | 'event_date'
-      | 'event_month'
-      | 'received_at'
-      | 'processed_at'
-    >[],
+    events: Array<{
+      client_id: string;
+      campaign_id: string;
+      subcampaign_id: string;
+      timestamp: string;
+      instance_id: string;
+      host_name: string | null;
+      error_code: string;
+      event_type: string;
+      source: string;
+      criticality: string;
+      severity: string;
+      payload: string;
+    }>,
   ): Promise<void> {
     const database = this.configService.get<string>(
       'clickhouse.database',
@@ -458,7 +521,7 @@ export class ClickHouseRepository implements OnModuleInit {
     });
 
     await this.client.exec({
-      query: `ALTER TABLE ${database}.crm_events DELETE WHERE user_id = {userId:UUID}`,
+      query: `ALTER TABLE ${database}.crm_events DELETE WHERE crm_user_id = {userId:UUID}`,
       query_params: { userId },
     });
   }
@@ -475,9 +538,8 @@ export class ClickHouseRepository implements OnModuleInit {
 
     const resultSet = await this.client.query({
       query: `
-        SELECT 
-          count() as events_received_last_hour,
-          avg(toUnixTimestamp64Milli(processed_at) - toUnixTimestamp64Milli(received_at)) as avg_processing_time_ms
+        SELECT
+          count() as events_received_last_hour
         FROM ${database}.user_events
         WHERE timestamp >= now() - INTERVAL 1 HOUR
       `,
@@ -486,7 +548,6 @@ export class ClickHouseRepository implements OnModuleInit {
 
     const result = await resultSet.json<{
       events_received_last_hour: string;
-      avg_processing_time_ms: string;
     }>();
 
     return {
@@ -495,9 +556,7 @@ export class ClickHouseRepository implements OnModuleInit {
         10,
       ),
       queue_depth: 0, // Queue depth would be tracked separately
-      avg_processing_time_ms: parseFloat(
-        result[0]?.avg_processing_time_ms || '0',
-      ),
+      avg_processing_time_ms: 0, // Processing time tracking requires additional instrumentation
     };
   }
 
