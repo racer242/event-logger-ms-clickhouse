@@ -70,11 +70,8 @@ ALTER TABLE event_logger.user_events
 ALTER TABLE event_logger.user_events 
     ADD INDEX idx_prize_id prize_id TYPE bloom_filter GRANULARITY 4;
 
-ALTER TABLE event_logger.user_events 
+ALTER TABLE event_logger.user_events
     ADD INDEX idx_receipt_id receipt_id TYPE bloom_filter GRANULARITY 4;
 
-ALTER TABLE event_logger.user_events 
-    ADD INDEX idx_payload_json payload TYPE bloom_filter GRANULARITY 4;
-
-ALTER TABLE event_logger.user_events 
+ALTER TABLE event_logger.user_events
     ADD INDEX idx_timestamp_minmax timestamp TYPE minmax GRANULARITY 1;

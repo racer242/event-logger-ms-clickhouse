@@ -142,13 +142,6 @@ export class ClickHouseRepository implements OnModuleInit {
     await this.client.exec({
       query: `
         ALTER TABLE ${database}.user_events
-        ADD INDEX IF NOT EXISTS idx_payload_json payload TYPE bloom_filter GRANULARITY 4
-      `,
-    });
-
-    await this.client.exec({
-      query: `
-        ALTER TABLE ${database}.user_events
         ADD INDEX IF NOT EXISTS idx_timestamp_minmax timestamp TYPE minmax GRANULARITY 1
       `,
     });

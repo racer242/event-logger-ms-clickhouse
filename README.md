@@ -653,7 +653,6 @@ curl -X POST http://localhost:3000/api/v1/events \
 - `idx_activity_id` — Bloom filter на `activity_id`
 - `idx_prize_id` — Bloom filter на `prize_id`
 - `idx_receipt_id` — Bloom filter на `receipt_id`
-- `idx_payload_json` — Bloom filter на `payload`
 - `idx_timestamp_minmax` — MinMax на `timestamp`
 
 ### crm_events
