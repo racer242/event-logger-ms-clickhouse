@@ -1,44 +1,6 @@
 version: '3.8'
 
 services:
-  # ClickHouse Database
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.1
-    container_name: event-logger-clickhouse
-    ports:
-      - "8123:8123"  # HTTP interface
-      - "9000:9000"  # Native client interface
-    environment:
-      - CLICKHOUSE_DB=event_logger
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - event-logger-network
-
-  # Redis (for future queue implementation)
-  redis:
-    image: redis:7-alpine
-    container_name: event-logger-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - event-logger-network
-
   # Event Logger API
   event-logger:
     build:
@@ -47,34 +9,40 @@ services:
     container_name: event-logger-api
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=3000
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=
-      - CLICKHOUSE_DATABASE=event_logger
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - BUFFER_MAX_SIZE=1000
-      - BUFFER_FLUSH_INTERVAL_MS=5000
-      - API_KEYS=dev-api-key-12345,prod-api-key-67890
-      - SWAGGER_ENABLED=true
-      - SWAGGER_PATH=/api/docs
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE}
+      - CLICKHOUSE_ASYNC_INSERT=${CLICKHOUSE_ASYNC_INSERT:-0}
+      - CLICKHOUSE_WAIT_FOR_ASYNC_INSERT=${CLICKHOUSE_WAIT_FOR_ASYNC_INSERT:-0}
+      - CLICKHOUSE_SKIP_HEALTH_CHECK=${CLICKHOUSE_SKIP_HEALTH_CHECK:-false}
+      - REDIS_ENABLED=${REDIS_ENABLED:-false}
+      - BUFFER_MAX_SIZE=${BUFFER_MAX_SIZE:-1000}
+      - BUFFER_FLUSH_INTERVAL_MS=${BUFFER_FLUSH_INTERVAL_MS:-5000}
+      - API_KEYS=${API_KEYS}
+      - SWAGGER_ENABLED=${SWAGGER_ENABLED:-true}
+      - SWAGGER_PATH=${SWAGGER_PATH:-/api/docs}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - event-logger-network
-    restart: unless-stopped
 
 networks:
   event-logger-network:
     driver: bridge
-
-volumes:
-  clickhouse_data:
-  redis_data:
