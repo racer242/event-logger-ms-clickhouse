@@ -77,6 +77,10 @@ export class UserEventDto {
   @IsUUID()
   prize_id?: string;
 
+  @IsOptional()
+  @IsUUID()
+  message_id?: string;
+
   // КЛАССИФИКАЦИЯ СОБЫТИЯ
   @IsString()
   event_type: string;
@@ -257,6 +261,10 @@ export class CreateEventDto {
   @IsOptional()
   @IsUUID()
   prize_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  message_id?: string;
 
   @IsOptional()
   @IsString()

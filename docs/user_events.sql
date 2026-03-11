@@ -23,6 +23,7 @@ CREATE TABLE event_logger.user_events
     code            Nullable(String),                                       -- ID кода | API - необязательный
     activity_id     Nullable(UUID),                                         -- ID активности | API - необязательный
     prize_id        Nullable(UUID),                                         -- ID приза | API - необязательный
+    message_id      Nullable(UUID),                                         -- ID сообщения | API - необязательный
     
     -- ============================================
     -- КЛАССИФИКАЦИЯ СОБЫТИЯ
@@ -72,6 +73,9 @@ ALTER TABLE event_logger.user_events
 
 ALTER TABLE event_logger.user_events
     ADD INDEX idx_receipt_id receipt_id TYPE bloom_filter GRANULARITY 4;
+
+ALTER TABLE event_logger.user_events
+    ADD INDEX idx_message_id message_id TYPE bloom_filter GRANULARITY 4;
 
 ALTER TABLE event_logger.user_events
     ADD INDEX idx_timestamp_minmax timestamp TYPE minmax GRANULARITY 1;

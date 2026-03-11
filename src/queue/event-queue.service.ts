@@ -338,6 +338,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         code: data.code || null,
         activity_id: data.activity_id || null,
         prize_id: data.prize_id || null,
+        message_id: data.message_id || null,
         event_type: data.event_type,
         source: data.source || 'unknown',
         criticality: data.criticality || 'low',

@@ -249,6 +249,7 @@ docker-compose down
 - `prize.claim`, `prize.issue`, `prize.ship`
 - `page_view.open`, `page_view.leave`
 - `content_interaction.click`, `content_interaction.share`
+- `feedback.send`, `feedback.rate`, `feedback.complaint` — Отправка обратной связи (требуется `message_id`)
 
 ### crm_events — CRM события
 
@@ -633,6 +634,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 | `code` | Nullable(String) | ❌ | Код продукта |
 | `activity_id` | Nullable(UUID) | ❌ | ID активности |
 | `prize_id` | Nullable(UUID) | ❌ | ID приза |
+| `message_id` | Nullable(UUID) | ❌ | ID сообщения (для обратной связи) |
 | `event_type` | LowCardinality(String) | ✅ | Тип события (например, `registration.complete`) |
 | `source` | LowCardinality(String) | ✅ | Источник события (название сервиса) |
 | `criticality` | LowCardinality(String) | ✅ | Критичность: `low`, `medium`, `high` |
@@ -655,6 +657,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 - `idx_activity_id` — Bloom filter на `activity_id`
 - `idx_prize_id` — Bloom filter на `prize_id`
 - `idx_receipt_id` — Bloom filter на `receipt_id`
+- `idx_message_id` — Bloom filter на `message_id`
 - `idx_timestamp_minmax` — MinMax на `timestamp`
 
 ### crm_events

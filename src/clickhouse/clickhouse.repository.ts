@@ -142,6 +142,13 @@ export class ClickHouseRepository implements OnModuleInit {
     await this.client.exec({
       query: `
         ALTER TABLE ${database}.user_events
+        ADD INDEX IF NOT EXISTS idx_message_id message_id TYPE bloom_filter GRANULARITY 4
+      `,
+    });
+
+    await this.client.exec({
+      query: `
+        ALTER TABLE ${database}.user_events
         ADD INDEX IF NOT EXISTS idx_timestamp_minmax timestamp TYPE minmax GRANULARITY 1
       `,
     });
@@ -318,6 +325,7 @@ export class ClickHouseRepository implements OnModuleInit {
       code: string | null;
       activity_id: string | null;
       prize_id: string | null;
+      message_id: string | null;
       event_type: string;
       source: string;
       criticality: string;
