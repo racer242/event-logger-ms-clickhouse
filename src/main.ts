@@ -50,7 +50,7 @@ async function bootstrap() {
   }
 
   const port = configService.get<number>('app.port', 3000);
-  const host = configService.get<string>('app.host', 'localhost');
+  const host = configService.get<string>('app.host', '0.0.0.0');
 
   await app.listen(port, host);
 
@@ -64,7 +64,7 @@ async function bootstrap() {
 function printStartupBanner(configService: ConfigService, logger: Logger) {
   const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
   const port = configService.get<number>('app.port', 3000);
-  const host = configService.get<string>('app.host', 'localhost');
+  const host = configService.get<string>('app.host', '0.0.0.0');
 
   // ClickHouse config
   const clickhouseConfig = configService.get('clickhouse');
