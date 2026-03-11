@@ -321,7 +321,7 @@ export class ClickHouseRepository implements OnModuleInit {
       event_type: string;
       source: string;
       criticality: string;
-      payload: string;
+      payload: Record<string, any>;
     }>,
   ): Promise<void> {
     const database = this.configService.get<string>(
@@ -349,7 +349,7 @@ export class ClickHouseRepository implements OnModuleInit {
       event_type: string;
       source: string;
       criticality: string;
-      payload: string;
+      payload: Record<string, any>;
     }>,
   ): Promise<void> {
     const database = this.configService.get<string>(
@@ -376,7 +376,7 @@ export class ClickHouseRepository implements OnModuleInit {
       source: string;
       criticality: string;
       severity: string;
-      payload: string;
+      payload: Record<string, any>;
     }>,
   ): Promise<void> {
     const database = this.configService.get<string>(

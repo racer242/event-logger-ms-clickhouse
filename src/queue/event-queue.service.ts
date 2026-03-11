@@ -1,9 +1,19 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import { ClickHouseRepository } from '../clickhouse/clickhouse.repository';
-import { CreateEventDto, UserEventDto, CrmEventDto, SystemEventDto } from '../events/dto/create-event.dto';
+import {
+  CreateEventDto,
+  UserEventDto,
+  CrmEventDto,
+  SystemEventDto,
+} from '../events/dto/create-event.dto';
 
 export interface QueuedEvent {
   id: string;
@@ -15,16 +25,16 @@ export interface QueuedEvent {
 @Injectable()
 export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EventQueueService.name);
-  
+
   // In-memory буфер (для режима без Redis)
   private memoryBuffer: QueuedEvent[] = [];
   private readonly memoryMaxSize: number;
-  
+
   // Redis клиент (для режима с Redis)
   private redisClient: Redis | null = null;
   private readonly isRedisEnabled: boolean;
   private readonly queuePrefix: string;
-  
+
   // Таймер сброса
   private flushTimer: NodeJS.Timeout | null = null;
   private readonly flushIntervalMs: number;
@@ -33,20 +43,32 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     private readonly clickHouseRepo: ClickHouseRepository,
   ) {
-    this.isRedisEnabled = this.configService.get<boolean>('redis.enabled', false);
-    this.queuePrefix = this.configService.get<string>('redis.queuePrefix', 'event_logger');
+    this.isRedisEnabled = this.configService.get<boolean>(
+      'redis.enabled',
+      false,
+    );
+    this.queuePrefix = this.configService.get<string>(
+      'redis.queuePrefix',
+      'event_logger',
+    );
     this.memoryMaxSize = this.configService.get<number>('buffer.maxSize', 1000);
-    this.flushIntervalMs = this.configService.get<number>('buffer.flushIntervalMs', 5000);
+    this.flushIntervalMs = this.configService.get<number>(
+      'buffer.flushIntervalMs',
+      5000,
+    );
   }
 
   async onModuleInit() {
     // Если Redis включён - подключаемся
     if (this.isRedisEnabled) {
       try {
-        const redisHost = this.configService.get<string>('redis.host', 'localhost');
+        const redisHost = this.configService.get<string>(
+          'redis.host',
+          'localhost',
+        );
         const redisPort = this.configService.get<number>('redis.port', 6379);
         const redisPassword = this.configService.get<string>('redis.password');
-        
+
         this.redisClient = new Redis({
           host: redisHost,
           port: redisPort,
@@ -71,7 +93,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         this.redisClient = null;
       }
     }
-    
+
     // Запуск таймера сброса
     this.startFlushTimer();
   }
@@ -80,12 +102,12 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     // Graceful shutdown - сброс остатков
     this.logger.log('Flushing remaining events before shutdown...');
     await this.flushBuffer();
-    
+
     // Остановка таймера
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
     }
-    
+
     // Закрытие Redis подключения
     if (this.redisClient) {
       await this.redisClient.quit();
@@ -99,9 +121,11 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     }, this.flushIntervalMs);
   }
 
-  async enqueue(event: CreateEventDto): Promise<{ eventId: string; table: string }> {
+  async enqueue(
+    event: CreateEventDto,
+  ): Promise<{ eventId: string; table: string }> {
     const table = this.determineTable(event);
-    
+
     const queuedEvent: QueuedEvent = {
       id: uuidv4(),
       data: event,
@@ -111,11 +135,14 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
 
     if (this.isRedisEnabled && this.redisClient) {
       // Redis режим
-      await this.redisClient.lpush(this.getQueueKey(), JSON.stringify(queuedEvent));
+      await this.redisClient.lpush(
+        this.getQueueKey(),
+        JSON.stringify(queuedEvent),
+      );
     } else {
       // In-memory режим
       this.memoryBuffer.push(queuedEvent);
-      
+
       // Сброс при заполнении
       if (this.memoryBuffer.length >= this.memoryMaxSize) {
         await this.flushBuffer();
@@ -125,9 +152,11 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     return { eventId: queuedEvent.id, table };
   }
 
-  async enqueueBatch(events: CreateEventDto[]): Promise<{ count: number; tables: Record<string, number> }> {
+  async enqueueBatch(
+    events: CreateEventDto[],
+  ): Promise<{ count: number; tables: Record<string, number> }> {
     const tables: Record<string, number> = {};
-    
+
     for (const event of events) {
       const table = this.determineTable(event);
       tables[table] = (tables[table] || 0) + 1;
@@ -137,7 +166,9 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     return { count: events.length, tables };
   }
 
-  private determineTable(event: CreateEventDto): 'user_events' | 'crm_events' | 'system_events' {
+  private determineTable(
+    event: CreateEventDto,
+  ): 'user_events' | 'crm_events' | 'system_events' {
     // System events - по наличию severity или event_type начинается с system
     if (event.severity || event.event_type.startsWith('system.')) {
       return 'system_events';
@@ -166,28 +197,34 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     try {
       // Забираем все "зависшие" события с прошлого запуска
       const pending = await this.redisClient.lrange(this.getQueueKey(), 0, -1);
-      
+
       if (pending.length > 0) {
-        this.logger.log(`Recovering ${pending.length} pending events from Redis...`);
-        
+        this.logger.log(
+          `Recovering ${pending.length} pending events from Redis...`,
+        );
+
         const eventsToRecover: QueuedEvent[] = [];
-        
+
         for (const eventJson of pending) {
           try {
             const event = JSON.parse(eventJson) as QueuedEvent;
             eventsToRecover.push(event);
           } catch (error) {
-            this.logger.error(`Failed to parse recovered event: ${error.message}`);
+            this.logger.error(
+              `Failed to parse recovered event: ${error.message}`,
+            );
           }
         }
-        
+
         if (eventsToRecover.length > 0) {
           // Отправляем восстановленные события в ClickHouse
           await this.insertEvents(eventsToRecover);
-          
+
           // Очищаем очередь после восстановления
           await this.redisClient.del(this.getQueueKey());
-          this.logger.log(`Recovery complete: ${eventsToRecover.length} events processed`);
+          this.logger.log(
+            `Recovery complete: ${eventsToRecover.length} events processed`,
+          );
         }
       }
     } catch (error) {
@@ -199,28 +236,42 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     if (this.isRedisEnabled && this.redisClient) {
       // Redis режим - пакетная обработка
       const batchSize = 100;
-      
+
       try {
         while (true) {
           // Забираем пачку из очереди
-          const eventsJson = await this.redisClient.lrange(this.getQueueKey(), 0, batchSize - 1);
-          
+          const eventsJson = await this.redisClient.lrange(
+            this.getQueueKey(),
+            0,
+            batchSize - 1,
+          );
+
           if (eventsJson.length === 0) break;
-          
+
           try {
             // Перемещаем в "processing" (на случай сбоя)
-            await this.redisClient.lpush(this.getProcessingKey(), ...eventsJson);
-            await this.redisClient.ltrim(this.getQueueKey(), eventsJson.length, -1);
-            
+            await this.redisClient.lpush(
+              this.getProcessingKey(),
+              ...eventsJson,
+            );
+            await this.redisClient.ltrim(
+              this.getQueueKey(),
+              eventsJson.length,
+              -1,
+            );
+
             // Парсим и отправляем в ClickHouse
-            const events: QueuedEvent[] = eventsJson.map(json => JSON.parse(json));
+            const events: QueuedEvent[] = eventsJson.map((json) =>
+              JSON.parse(json),
+            );
             await this.insertEvents(events);
-            
+
             // Очищаем processing после успешной записи
             await this.redisClient.del(this.getProcessingKey());
-            
           } catch (error) {
-            this.logger.error(`Flush failed: ${error.message}. Events remain in processing.`);
+            this.logger.error(
+              `Flush failed: ${error.message}. Events remain in processing.`,
+            );
             break;
           }
         }
@@ -237,11 +288,14 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async insertEvents(events: QueuedEvent[]) {
-    const eventsByTable = events.reduce((acc, event) => {
-      acc[event.table] = acc[event.table] || [];
-      acc[event.table].push(event);
-      return acc;
-    }, {} as Record<string, QueuedEvent[]>);
+    const eventsByTable = events.reduce(
+      (acc, event) => {
+        acc[event.table] = acc[event.table] || [];
+        acc[event.table].push(event);
+        return acc;
+      },
+      {} as Record<string, QueuedEvent[]>,
+    );
 
     for (const [table, tableEvents] of Object.entries(eventsByTable)) {
       try {
@@ -258,7 +312,9 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         }
         this.logger.log(`Inserted ${tableEvents.length} events into ${table}`);
       } catch (error) {
-        this.logger.error(`Failed to insert events into ${table}: ${error.message}`);
+        this.logger.error(
+          `Failed to insert events into ${table}: ${error.message}`,
+        );
         throw error;
       }
     }
@@ -285,7 +341,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         event_type: data.event_type,
         source: data.source || 'unknown',
         criticality: data.criticality || 'low',
-        payload: data.payload ? JSON.stringify(data.payload) : '{}',
+        payload: data.payload || {},
       };
     });
 
@@ -308,7 +364,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         event_type: data.event_type,
         source: data.source || 'unknown',
         criticality: data.criticality || 'low',
-        payload: data.payload ? JSON.stringify(data.payload) : '{}',
+        payload: data.payload || {},
       };
     });
 
@@ -330,14 +386,19 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         source: data.source || 'unknown',
         criticality: data.criticality || 'low',
         severity: data.severity || 'unknown',
-        payload: data.payload ? JSON.stringify(data.payload) : '{}',
+        payload: data.payload || {},
       };
     });
 
     await this.clickHouseRepo.insertSystemEvents(systemEvents);
   }
 
-  getQueueDepth(): { user_events: number; crm_events: number; system_events: number; redis?: number } {
+  getQueueDepth(): {
+    user_events: number;
+    crm_events: number;
+    system_events: number;
+    redis?: number;
+  } {
     if (this.isRedisEnabled) {
       return {
         user_events: 0,
@@ -346,7 +407,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         redis: 0, // Redis queue depth would require additional tracking
       };
     }
-    
+
     return {
       user_events: this.memoryBuffer.length,
       crm_events: 0,
