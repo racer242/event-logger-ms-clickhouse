@@ -76,6 +76,7 @@ export class ClickHouseRepository implements OnModuleInit {
             code            Nullable(String),
             activity_id     Nullable(UUID),
             prize_id        Nullable(UUID),
+            message_id      Nullable(UUID),
 
             -- КЛАССИФИКАЦИЯ СОБЫТИЯ
             event_type      LowCardinality(String)  NOT NULL,
