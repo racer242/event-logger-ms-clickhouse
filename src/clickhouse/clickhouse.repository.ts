@@ -331,7 +331,6 @@ export class ClickHouseRepository implements OnModuleInit {
     await this.client.insert({
       table: `${database}.user_events`,
       values: events,
-      format: 'JSONEachRow',
     });
   }
 
@@ -359,7 +358,6 @@ export class ClickHouseRepository implements OnModuleInit {
     await this.client.insert({
       table: `${database}.crm_events`,
       values: events,
-      format: 'JSONEachRow',
     });
   }
 
@@ -386,7 +384,6 @@ export class ClickHouseRepository implements OnModuleInit {
     await this.client.insert({
       table: `${database}.system_events`,
       values: events,
-      format: 'JSONEachRow',
     });
   }
 
