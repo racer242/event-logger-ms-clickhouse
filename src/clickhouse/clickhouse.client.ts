@@ -21,7 +21,7 @@ export function createClickHouseClient(
     password: config.password,
     database: config.database,
     clickhouse_settings: {
-      async_insert: config.asyncInsert ?? 1,
+      async_insert: config.asyncInsert ?? 0,
       wait_for_async_insert: config.waitForAsyncInsert ?? 0,
     },
   });
