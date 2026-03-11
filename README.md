@@ -192,6 +192,8 @@ docker-compose down
 | `CLICKHOUSE_DATABASE` | База данных | `event_logger` |
 | `CLICKHOUSE_MAX_CONNECTIONS` | Максимум подключений | `10` |
 | `CLICKHOUSE_SKIP_HEALTH_CHECK` | **Отключить проверку БД при старте** (true/false) | `false` |
+| `CLICKHOUSE_ASYNC_INSERT` | **Асинхронная вставка** (0/1) | `1` |
+| `CLICKHOUSE_WAIT_FOR_ASYNC_INSERT` | **Ожидание асинхронной вставки** (0/1) | `0` |
 | `REDIS_ENABLED` | **Включить Redis** (true/false) | `false` |
 | `REDIS_HOST` | Хост Redis | `localhost` |
 | `REDIS_PORT` | Порт Redis | `6379` |

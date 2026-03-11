@@ -17,6 +17,8 @@ import { CLICKHOUSE_CLIENT } from './clickhouse.constants';
           password: clickhouseConfig.password,
           database: clickhouseConfig.database,
           maxConnections: clickhouseConfig.maxConnections,
+          asyncInsert: clickhouseConfig.asyncInsert,
+          waitForAsyncInsert: clickhouseConfig.waitForAsyncInsert,
         });
       },
       inject: [ConfigService],
