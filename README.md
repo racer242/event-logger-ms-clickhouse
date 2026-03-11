@@ -449,6 +449,24 @@ curl -X POST http://localhost:3000/api/v1/events \
     "criticality": "low",
     "payload": { "page": "/campaign/main" }
   }'
+
+# Отправка обратной связи
+curl -X POST http://localhost:3000/api/v1/events \
+  -H "X-API-Key: dev-api-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "client-001",
+    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "session_id": "sess-user-001",
+    "portal_id": "portal-main",
+    "bot_id": "bot-none",
+    "timestamp": "2026-03-02T12:15:00.000Z",
+    "event_type": "feedback.send",
+    "source": "feedback-service",
+    "criticality": "medium",
+    "message_id": "550e8400-e29b-41d4-a716-446655440050",
+    "payload": { "rating": 5, "comment": "Отличный сервис!" }
+  }'
 ```
 
 #### crm_events - CRM события
