@@ -12,9 +12,6 @@ export class SecurityModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(ApiKeyMiddleware)
-      .forRoutes(
-        { path: 'api/v1/*path', method: RequestMethod.ALL },
-        { path: 'health', method: RequestMethod.GET },
-      );
+      .forRoutes({ path: 'api/v1/*path', method: RequestMethod.ALL });
   }
 }
