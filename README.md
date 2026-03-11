@@ -640,7 +640,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 | `event_id` | UUID | ✅ (auto) | Уникальный идентификатор события |
 | `client_id` | LowCardinality(String) | ✅ | ID клиента |
 | `campaign_id` | LowCardinality(String) | ✅ | ID кампании |
-| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'unknown'`) |
+| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'main'`) |
 | `timestamp` | DateTime64(3, 'UTC') | ✅ | Время события |
 | `portal_id` | LowCardinality(String) | ✅ | Портал-источник события (default: `'unknown'`) |
 | `bot_id` | LowCardinality(String) | ✅ | Чат-бот-источник события (default: `'unknown'`) |

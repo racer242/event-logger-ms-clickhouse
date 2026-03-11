@@ -107,7 +107,7 @@ CREATE TABLE event_logger.user_events
     event_id        UUID                    DEFAULT generateUUIDv4(),       -- ID события в базе данных 
     client_id       LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- ID клиента - (агентство может иметь несколько клиентов) | API - обязательный
     campaign_id     LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- ID кампании - от какой кампании проходит событие | API - обязательный
-    subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- ID подкампании - в рамках кампании может быть несколько подкампаний | API - необязательный
+    subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'main',        -- ID подкампании - в рамках кампании может быть несколько подкампаний | API - необязательный
     timestamp       DateTime64(3, 'UTC')    NOT NULL,                       -- Время события | API - обязательный
     portal_id       LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- Портал-источник события события | API - обязательный
     bot_id          LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- Чат-бот-источник события события | API - обязательный
@@ -470,7 +470,7 @@ CREATE TABLE event_logger.system_events
     event_id        UUID                    DEFAULT generateUUIDv4(),       -- ID события в базе данных 
     client_id       LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- ID клиента - (агентство может иметь несколько клиентов) | API - обязательный
     campaign_id     LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- ID кампании - от какой кампании проходит событие | API - обязательный
-    subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- ID подкампании - в рамках кампании может быть несколько подкампаний | API - необязательный
+    subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'main',        -- ID подкампании - в рамках кампании может быть несколько подкампаний | API - необязательный
     timestamp       DateTime64(3, 'UTC')    NOT NULL,                       -- Время события | API - обязательный
     instance_id     LowCardinality(String)  NOT NULL DEFAULT 'unknown',     -- ID инстанса источника события | API - обязательный
     host_name       Nullable(String),                                       -- Хост источника события | API - необязательный
