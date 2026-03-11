@@ -8,8 +8,8 @@ export interface ClickHouseConfig {
   password: string;
   database: string;
   maxConnections: number;
-  asyncInsert?: number;
-  waitForAsyncInsert?: number;
+  asyncInsert?: 0 | 1;
+  waitForAsyncInsert?: 0 | 1;
 }
 
 export function createClickHouseClient(

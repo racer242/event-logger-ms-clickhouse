@@ -11,7 +11,7 @@ export default registerAs('clickhouse', () => {
     database: process.env.CLICKHOUSE_DATABASE || 'event_logger',
     maxConnections: parseInt(process.env.CLICKHOUSE_MAX_CONNECTIONS || '10', 10),
     skipHealthCheck: process.env.CLICKHOUSE_SKIP_HEALTH_CHECK === 'true',
-    asyncInsert: parseInt(process.env.CLICKHOUSE_ASYNC_INSERT || '1', 10),
-    waitForAsyncInsert: parseInt(process.env.CLICKHOUSE_WAIT_FOR_ASYNC_INSERT || '0', 10),
+    asyncInsert: (process.env.CLICKHOUSE_ASYNC_INSERT !== '0' ? 1 : 0) as 0 | 1,
+    waitForAsyncInsert: (process.env.CLICKHOUSE_WAIT_FOR_ASYNC_INSERT === '1' ? 1 : 0) as 0 | 1,
   };
 });
