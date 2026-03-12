@@ -6,6 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: event-logger:latest
     container_name: event-logger-api
     ports:
       - "3000:3000"
