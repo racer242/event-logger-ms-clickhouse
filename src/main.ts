@@ -98,6 +98,22 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
     5000,
   );
 
+  // Queue config
+  const queueType = configService.get<string>('queue.type', 'sqlite');
+  const sqliteEnabled = configService.get<boolean>(
+    'queue.sqlite.enabled',
+    true,
+  );
+  const sqliteDbPath = configService.get<string>(
+    'queue.sqlite.dbPath',
+    'data/events.db',
+  );
+  const queueFlushInterval = configService.get<number>(
+    'queue.flushIntervalMs',
+    5000,
+  );
+  const queueBatchSize = configService.get<number>('queue.batchSize', 100);
+
   // Security config
   const apiKeys = configService.get<string>('security.apiKeys', '');
   const apiKeyCount = apiKeys
@@ -146,6 +162,13 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
 |  -----------------------                                                     |
 |  - Max Buffer Size:    ${pad(String(bufferMaxSize), 54)}|
 |  - Flush Interval:     ${pad(String(bufferFlushInterval) + ' ms', 54)}|
++==============================================================================+
+|  QUEUE CONFIGURATION (SQLite)                                                |
+|  ---------------------------                                                 |
+|  - Type:                 ${pad(queueType.toUpperCase(), 54)}|
+|  - Enabled:              ${pad(sqliteEnabled ? 'Yes (' + sqliteDbPath + ')' : 'No', 54)}|
+|  - Flush Interval:       ${pad(String(queueFlushInterval) + ' ms', 54)}|
+|  - Batch Size:           ${pad(String(queueBatchSize), 54)}|
 +==============================================================================+
 |  SECURITY                                                                    |
 |  ----------                                                                  |

@@ -18,15 +18,16 @@
 
 Сервис хранит события в трёх таблицах ClickHouse:
 
-| Таблица | Назначение | Срок хранения |
-|---------|------------|---------------|
-| `user_events` | События активности пользователей (регистрация, авторизация, участие в активностях, получение призов) | 3 года |
-| `crm_events` | CRM-события (действия администраторов, модерация, уведомления) | 3 года |
-| `system_events` | Системные события (ошибки, метрики производительности, health check) | 1 год |
+| Таблица         | Назначение                                                                                           | Срок хранения |
+| --------------- | ---------------------------------------------------------------------------------------------------- | ------------- |
+| `user_events`   | События активности пользователей (регистрация, авторизация, участие в активностях, получение призов) | 3 года        |
+| `crm_events`    | CRM-события (действия администраторов, модерация, уведомления)                                       | 3 года        |
+| `system_events` | Системные события (ошибки, метрики производительности, health check)                                 | 1 год         |
 
 **Партиционирование:** все таблицы партиционируются по `event_month` (YYYYMM).
 
 **Общие обязательные поля для всех таблиц:**
+
 - `client_id` — ID клиента (агентство может иметь несколько клиентов)
 - `campaign_id` — ID кампании
 - `timestamp` — время события (DateTime64(3, 'UTC'))
@@ -39,74 +40,115 @@
 
 Сервис поддерживает **гибридный режим работы** с очередью событий:
 
-### Режимы работы
+### Режимы работы очереди
 
-#### 1. Redis режим (`REDIS_ENABLED=true`)
+#### 1. SQLite режим (`QUEUE_TYPE=sqlite`, по умолчанию)
 
-**Использование:** Для production и больших нагрузок.
+**Использование:** Для production и гарантии доставки событий.
 
 **Принцип работы:**
+
 ```
-Событие → API → Redis Queue → ClickHouse
+Событие → API → SQLite Queue → ClickHouse
 ```
 
 **Преимущества:**
-- ✅ **Гарантия доставки** — события не теряются при перезапуске сервиса
-- ✅ **Восстановление** — при старте сервис забирает "хвост" из Redis
-- ✅ **Масштабируемость** — несколько инстансов могут работать с одной очередью
 
-**Структура данных в Redis:**
-- `event_logger:queue` — очередь новых событий
-- `event_logger:processing` — события в обработке (защита от потери)
+- ✅ **Гарантия доставки** — события не теряются при перезапуске сервиса
+- ✅ **Восстановление** — при старте сервис обрабатывает "зависшие" события
+- ✅ **Персистентность** — данные сохраняются на диске
+- ✅ **Простота** — не нужен дополнительный сервис (Redis)
+- ✅ **Масштабируемость** — каждый инстанс имеет свою очередь
+
+**Структура данных:**
+
+- Файл БД: `data/events.db`
+- Таблица: `event_queue`
+- Статусы: `pending`, `processing`, `completed`, `failed`
 
 **Алгоритм обработки:**
-1. **Приём:** `LPUSH event_logger:queue <event>`
-2. **Сброс (каждые 5 сек или 1000 событий):**
-   - `LRANGE event_logger:queue 0 99` — забрать пачку
-   - `LPUSH event_logger:processing <events>` — зафиксировать обработку
-   - `LTRIM event_logger:queue 100 -1` — удалить из очереди
-   - Запись в ClickHouse
-   - `DEL event_logger:processing` — очистка после успешной записи
-3. **Восстановление после сбоя:**
-   - При старте: `LRANGE event_logger:queue 0 -1`
-   - Отправка всех "зависших" событий в ClickHouse
 
-#### 2. In-memory режим (`REDIS_ENABLED=false`, по умолчанию)
+1. **Приём:** `INSERT INTO event_queue (event_id, event_data, table_name, status)`
+2. **Сброс (каждые 5 сек или 100 событий):**
+   - Выборка пачки `pending` событий
+   - Пометка как `processing`
+   - Запись в ClickHouse
+   - Пометка как `completed`
+3. **Восстановление после сбоя:**
+   - При старте: выборка всех `pending` и `processing`
+   - Повторная отправка в ClickHouse
+
+#### 2. In-memory режим (`QUEUE_TYPE=memory`)
 
 **Использование:** Для разработки и небольших нагрузок.
 
 **Принцип работы:**
+
 ```
 Событие → API → Memory Buffer → ClickHouse
 ```
 
 **Преимущества:**
-- ✅ **Быстрее** — нет накладных расходов на Redis
-- ✅ **Проще** — не нужен дополнительный сервис
+
+- ✅ **Быстрее** — нет накладных расходов на БД
+- ✅ **Проще** — нет внешних зависимостей
 
 **Недостатки:**
+
 - ❌ **Теряется при рестарте** — события в буфере теряются при перезапуске
+
+#### 3. Redis режим (`QUEUE_TYPE=redis`, `REDIS_ENABLED=true`)
+
+**Использование:** Для распределённых систем с несколькими инстансами.
+
+**Принцип работы:**
+
+```
+Событие → API → Redis Queue → ClickHouse
+```
+
+**Преимущества:**
+
+- ✅ **Распределённая очередь** — несколько инстансов работают с одной очередью
+- ✅ **Гарантия доставки** — события не теряются при перезапуске
+
+**Недостатки:**
+
+- ❌ **Нужен Redis** — дополнительная зависимость
+- ❌ **Сложнее настройка** — нужен отдельный сервис
 
 ### Конфигурация
 
 ```env
+# Queue Configuration
+QUEUE_TYPE=sqlite              # sqlite, memory, redis
+SQLITE_ENABLED=true
+SQLITE_DB_PATH=data/events.db
+QUEUE_FLUSH_INTERVAL_MS=5000   # Интервал обработки очереди (мс)
+QUEUE_BATCH_SIZE=100           # Максимум событий за одну обработку
+
 # Redis Configuration (Optional)
-REDIS_ENABLED=false           # Включить Redis (true/false)
-REDIS_HOST=localhost          # Хост Redis
-REDIS_PORT=6379               # Порт Redis
-REDIS_PASSWORD=               # Пароль Redis
-QUEUE_PREFIX=event_logger     # Префикс ключей Redis
+REDIS_ENABLED=false
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+QUEUE_PREFIX=event_logger
+REDIS_SKIP_HEALTH_CHECK=false
 ```
 
-### Когда включать Redis?
+> **Примечание:** По умолчанию используется SQLite очередь. Установите `QUEUE_TYPE=memory` для in-memory режима или `QUEUE_TYPE=redis` + `REDIS_ENABLED=true` для Redis.
 
-| Сценарий | Рекомендуемый режим |
-|----------|---------------------|
-| Разработка | `REDIS_ENABLED=false` |
-| Тестирование | `REDIS_ENABLED=false` |
-| Production (малая нагрузка) | `REDIS_ENABLED=false` |
-| Production (средняя/высокая нагрузка) | `REDIS_ENABLED=true` |
-| Критична гарантия доставки | `REDIS_ENABLED=true` |
+### Когда использовать разные режимы?
+
+| Сценарий                              | Рекомендуемый режим             |
+| ------------------------------------- | ------------------------------- |
+| Разработка                            | `QUEUE_TYPE=sqlite`             |
+| Тестирование                          | `QUEUE_TYPE=memory`             |
+| Production (один инстанс)             | `QUEUE_TYPE=sqlite`             |
+| Production (несколько инстансов)      | `QUEUE_TYPE=redis`              |
+| Критична гарантия доставки            | `QUEUE_TYPE=sqlite` или `redis` |
+| Production (средняя/высокая нагрузка) | `REDIS_ENABLED=true`            |
+| Критична гарантия доставки            | `REDIS_ENABLED=true`            |
 
 ## Быстрый старт
 
@@ -181,28 +223,28 @@ docker-compose down
 
 ## Конфигурация (.env)
 
-| Переменная | Описание | По умолчанию |
-|------------|----------|--------------|
-| `PORT` | Порт приложения | `3000` |
-| `HOST` | Хост приложения | `localhost` |
-| `CLICKHOUSE_HOST` | Хост ClickHouse | `localhost` |
-| `CLICKHOUSE_PORT` | Порт ClickHouse (HTTP) | `8123` |
-| `CLICKHOUSE_USER` | Пользователь ClickHouse | `default` |
-| `CLICKHOUSE_PASSWORD` | Пароль ClickHouse | `` |
-| `CLICKHOUSE_DATABASE` | База данных | `event_logger` |
-| `CLICKHOUSE_MAX_CONNECTIONS` | Максимум подключений | `10` |
-| `CLICKHOUSE_SKIP_HEALTH_CHECK` | **Отключить проверку БД при старте** (true/false) | `false` |
-| `CLICKHOUSE_ASYNC_INSERT` | **Асинхронная вставка** (0/1) | `0` |
-| `CLICKHOUSE_WAIT_FOR_ASYNC_INSERT` | **Ожидание асинхронной вставки** (0/1) | `0` |
-| `REDIS_ENABLED` | **Включить Redis** (true/false) | `false` |
-| `REDIS_HOST` | Хост Redis | `localhost` |
-| `REDIS_PORT` | Порт Redis | `6379` |
-| `REDIS_PASSWORD` | Пароль Redis | `` |
-| `QUEUE_PREFIX` | Префикс очереди | `event_logger` |
-| `BUFFER_MAX_SIZE` | Максимальный размер буфера | `1000` |
-| `BUFFER_FLUSH_INTERVAL_MS` | Интервал сброса буфера (мс) | `5000` |
-| `API_KEYS` | Список API ключей через запятую | `dev-api-key-12345` |
-| `SWAGGER_ENABLED` | Включить Swagger | `true` |
+| Переменная                         | Описание                                          | По умолчанию        |
+| ---------------------------------- | ------------------------------------------------- | ------------------- |
+| `PORT`                             | Порт приложения                                   | `3000`              |
+| `HOST`                             | Хост приложения                                   | `localhost`         |
+| `CLICKHOUSE_HOST`                  | Хост ClickHouse                                   | `localhost`         |
+| `CLICKHOUSE_PORT`                  | Порт ClickHouse (HTTP)                            | `8123`              |
+| `CLICKHOUSE_USER`                  | Пользователь ClickHouse                           | `default`           |
+| `CLICKHOUSE_PASSWORD`              | Пароль ClickHouse                                 | ``                  |
+| `CLICKHOUSE_DATABASE`              | База данных                                       | `event_logger`      |
+| `CLICKHOUSE_MAX_CONNECTIONS`       | Максимум подключений                              | `10`                |
+| `CLICKHOUSE_SKIP_HEALTH_CHECK`     | **Отключить проверку БД при старте** (true/false) | `false`             |
+| `CLICKHOUSE_ASYNC_INSERT`          | **Асинхронная вставка** (0/1)                     | `0`                 |
+| `CLICKHOUSE_WAIT_FOR_ASYNC_INSERT` | **Ожидание асинхронной вставки** (0/1)            | `0`                 |
+| `REDIS_ENABLED`                    | **Включить Redis** (true/false)                   | `false`             |
+| `REDIS_HOST`                       | Хост Redis                                        | `localhost`         |
+| `REDIS_PORT`                       | Порт Redis                                        | `6379`              |
+| `REDIS_PASSWORD`                   | Пароль Redis                                      | ``                  |
+| `QUEUE_PREFIX`                     | Префикс очереди                                   | `event_logger`      |
+| `BUFFER_MAX_SIZE`                  | Максимальный размер буфера                        | `1000`              |
+| `BUFFER_FLUSH_INTERVAL_MS`         | Интервал сброса буфера (мс)                       | `5000`              |
+| `API_KEYS`                         | Список API ключей через запятую                   | `dev-api-key-12345` |
+| `SWAGGER_ENABLED`                  | Включить Swagger                                  | `true`              |
 
 > **Примечание:** Установите `CLICKHOUSE_SKIP_HEALTH_CHECK=true`, чтобы приложение запускалось даже при недоступности ClickHouse. Это полезно для разработки или когда БД развёртывается отдельно.
 
@@ -214,35 +256,36 @@ docker-compose down
 
 ### Обязательные поля для всех событий
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `client_id` | string | ID клиента (агентство может иметь несколько клиентов) |
-| `campaign_id` | string | ID кампании |
-| `timestamp` | string | Время события (ISO 8601, например, `2026-03-02T12:00:00.000Z`) |
-| `session_id` | string | ID сессии |
-| `event_type` | string | Тип события (формат: `category.subcategory.details`) |
-| `source` | string | Источник события (название сервиса) |
-| `criticality` | string | Критичность: `low`, `medium`, `high` |
+| Поле          | Тип    | Описание                                                       |
+| ------------- | ------ | -------------------------------------------------------------- |
+| `client_id`   | string | ID клиента (агентство может иметь несколько клиентов)          |
+| `campaign_id` | string | ID кампании                                                    |
+| `timestamp`   | string | Время события (ISO 8601, например, `2026-03-02T12:00:00.000Z`) |
+| `session_id`  | string | ID сессии                                                      |
+| `event_type`  | string | Тип события (формат: `category.subcategory.details`)           |
+| `source`      | string | Источник события (название сервиса)                            |
+| `criticality` | string | Критичность: `low`, `medium`, `high`                           |
 
 ### user_events — События пользователей
 
 **Специфичные поля:**
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `portal_id` | string | ✅ | Портал-источник |
-| `bot_id` | string | ✅ | Чат-бот-источник |
-| `subcampaign_id` | UUID | ❌ | ID подкампании |
-| `user_id` | UUID | ❌ | ID пользователя |
-| `user_utm` | string | ❌ | UTM-метка пользователя |
-| `crm_user_id` | UUID | ❌ | ID пользователя CRM |
-| `receipt_id` | UUID | ❌ | ID чека |
-| `code` | string | ❌ | Код продукта |
-| `activity_id` | UUID | ❌ | ID активности |
-| `prize_id` | UUID | ❌ | ID приза |
-| `payload` | object | ❌ | Дополнительные данные |
+| Поле             | Тип    | Обязательное | Описание               |
+| ---------------- | ------ | ------------ | ---------------------- |
+| `portal_id`      | string | ✅           | Портал-источник        |
+| `bot_id`         | string | ✅           | Чат-бот-источник       |
+| `subcampaign_id` | UUID   | ❌           | ID подкампании         |
+| `user_id`        | UUID   | ❌           | ID пользователя        |
+| `user_utm`       | string | ❌           | UTM-метка пользователя |
+| `crm_user_id`    | UUID   | ❌           | ID пользователя CRM    |
+| `receipt_id`     | UUID   | ❌           | ID чека                |
+| `code`           | string | ❌           | Код продукта           |
+| `activity_id`    | UUID   | ❌           | ID активности          |
+| `prize_id`       | UUID   | ❌           | ID приза               |
+| `payload`        | object | ❌           | Дополнительные данные  |
 
 **Примеры event_type:**
+
 - `registration.start`, `registration.complete`, `registration.error`
 - `auth.start`, `auth.complete`, `auth.failed`
 - `activity.start`, `activity.complete`, `activity.abandon`
@@ -255,16 +298,17 @@ docker-compose down
 
 **Специфичные поля:**
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `crm_user_id` | UUID | ✅ | ID пользователя CRM |
-| `entity_type` | string | ✅ | Тип сущности CRM (user, campaign, prize, etc.) |
-| `entity_id` | string | ✅ | ID сущности CRM |
-| `action_type` | string | ✅ | Тип действия (create, update, delete, moderate) |
-| `subcampaign_id` | UUID | ❌ | ID подкампании |
-| `payload` | object | ❌ | Дополнительные данные |
+| Поле             | Тип    | Обязательное | Описание                                        |
+| ---------------- | ------ | ------------ | ----------------------------------------------- |
+| `crm_user_id`    | UUID   | ✅           | ID пользователя CRM                             |
+| `entity_type`    | string | ✅           | Тип сущности CRM (user, campaign, prize, etc.)  |
+| `entity_id`      | string | ✅           | ID сущности CRM                                 |
+| `action_type`    | string | ✅           | Тип действия (create, update, delete, moderate) |
+| `subcampaign_id` | UUID   | ❌           | ID подкампании                                  |
+| `payload`        | object | ❌           | Дополнительные данные                           |
 
 **Примеры event_type:**
+
 - `admin.user.create`, `admin.user.update`, `admin.user.block`
 - `moderation.submission.approve`, `moderation.submission.reject`
 - `notification.send`, `notification.email`, `notification.sms`
@@ -275,16 +319,17 @@ docker-compose down
 
 **Специфичные поля:**
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `instance_id` | string | ✅ | ID инстанса сервиса |
-| `error_code` | string | ✅ | Код события (default: `'none'`) |
-| `severity` | string | ✅ | Важность: `warning`, `error`, `failure` |
-| `subcampaign_id` | string | ❌ | ID подкампании |
-| `host_name` | string | ❌ | Хост источника |
-| `payload` | object | ❌ | Дополнительные данные |
+| Поле             | Тип    | Обязательное | Описание                                |
+| ---------------- | ------ | ------------ | --------------------------------------- |
+| `instance_id`    | string | ✅           | ID инстанса сервиса                     |
+| `error_code`     | string | ✅           | Код события (default: `'none'`)         |
+| `severity`       | string | ✅           | Важность: `warning`, `error`, `failure` |
+| `subcampaign_id` | string | ❌           | ID подкампании                          |
+| `host_name`      | string | ❌           | Хост источника                          |
+| `payload`        | object | ❌           | Дополнительные данные                   |
 
 **Примеры event_type:**
+
 - `system.error.api`, `system.error.db`, `system.error.timeout`
 - `system.performance.metrics`, `system.performance.slow`
 - `system.health.check`, `system.health.degraded`
@@ -297,6 +342,7 @@ docker-compose down
 #### `POST /api/v1/events` - Приём одиночного события
 
 **Пример user_events:**
+
 ```json
 {
   "client_id": "client-001",
@@ -318,6 +364,7 @@ docker-compose down
 ```
 
 **Пример crm_events:**
+
 ```json
 {
   "client_id": "client-001",
@@ -338,6 +385,7 @@ docker-compose down
 ```
 
 **Пример system_events:**
+
 ```json
 {
   "client_id": "client-001",
@@ -598,6 +646,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 #### `GET /api/v1/events/query` - Запрос событий
 
 Параметры:
+
 - `table` (required): `user_events`, `crm_events`, `system_events`
 - `campaign_id` (optional): UUID кампании
 - `event_type` (optional): Тип события
@@ -635,33 +684,34 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 Хранение событий деятельности пользователей (просмотр страниц, регистрация, участие в активностях, получение призов).
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `event_id` | UUID | ✅ (auto) | Уникальный идентификатор события |
-| `client_id` | LowCardinality(String) | ✅ | ID клиента |
-| `campaign_id` | LowCardinality(String) | ✅ | ID кампании |
-| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'main'`) |
-| `timestamp` | DateTime64(3, 'UTC') | ✅ | Время события |
-| `portal_id` | LowCardinality(String) | ✅ | Портал-источник события (default: `'unknown'`) |
-| `bot_id` | LowCardinality(String) | ✅ | Чат-бот-источник события (default: `'unknown'`) |
-| `session_id` | String | ✅ | ID сессии пользователя |
-| `user_id` | Nullable(UUID) | ❌ | ID пользователя-участника |
-| `user_utm` | Nullable(String) | ❌ | UTM-метка пользователя |
-| `crm_user_id` | Nullable(UUID) | ❌ | ID пользователя CRM |
-| `receipt_id` | Nullable(UUID) | ❌ | ID чека |
-| `code` | Nullable(String) | ❌ | Код продукта |
-| `activity_id` | Nullable(UUID) | ❌ | ID активности |
-| `prize_id` | Nullable(UUID) | ❌ | ID приза |
-| `message_id` | Nullable(UUID) | ❌ | ID сообщения (для обратной связи) |
-| `event_type` | LowCardinality(String) | ✅ | Тип события (например, `registration.complete`) |
-| `source` | LowCardinality(String) | ✅ | Источник события (название сервиса) |
-| `criticality` | LowCardinality(String) | ✅ | Критичность: `low`, `medium`, `high` |
-| `payload` | Object('json') | ❌ | Дополнительные данные (JSON) |
-| `event_date` | Date | ✅ (auto) | Дата события (автоматически) |
-| `event_month` | String | ✅ (auto) | Месяц события (YYYYMM, для партиционирования) |
-| `event_hour` | UInt8 | ✅ (auto) | Час события (0-23) |
+| Поле             | Тип                    | Обязательное | Описание                                        |
+| ---------------- | ---------------------- | ------------ | ----------------------------------------------- |
+| `event_id`       | UUID                   | ✅ (auto)    | Уникальный идентификатор события                |
+| `client_id`      | LowCardinality(String) | ✅           | ID клиента                                      |
+| `campaign_id`    | LowCardinality(String) | ✅           | ID кампании                                     |
+| `subcampaign_id` | LowCardinality(String) | ❌           | ID подкампании (default: `'main'`)              |
+| `timestamp`      | DateTime64(3, 'UTC')   | ✅           | Время события                                   |
+| `portal_id`      | LowCardinality(String) | ✅           | Портал-источник события (default: `'unknown'`)  |
+| `bot_id`         | LowCardinality(String) | ✅           | Чат-бот-источник события (default: `'unknown'`) |
+| `session_id`     | String                 | ✅           | ID сессии пользователя                          |
+| `user_id`        | Nullable(UUID)         | ❌           | ID пользователя-участника                       |
+| `user_utm`       | Nullable(String)       | ❌           | UTM-метка пользователя                          |
+| `crm_user_id`    | Nullable(UUID)         | ❌           | ID пользователя CRM                             |
+| `receipt_id`     | Nullable(UUID)         | ❌           | ID чека                                         |
+| `code`           | Nullable(String)       | ❌           | Код продукта                                    |
+| `activity_id`    | Nullable(UUID)         | ❌           | ID активности                                   |
+| `prize_id`       | Nullable(UUID)         | ❌           | ID приза                                        |
+| `message_id`     | Nullable(UUID)         | ❌           | ID сообщения (для обратной связи)               |
+| `event_type`     | LowCardinality(String) | ✅           | Тип события (например, `registration.complete`) |
+| `source`         | LowCardinality(String) | ✅           | Источник события (название сервиса)             |
+| `criticality`    | LowCardinality(String) | ✅           | Критичность: `low`, `medium`, `high`            |
+| `payload`        | Object('json')         | ❌           | Дополнительные данные (JSON)                    |
+| `event_date`     | Date                   | ✅ (auto)    | Дата события (автоматически)                    |
+| `event_month`    | String                 | ✅ (auto)    | Месяц события (YYYYMM, для партиционирования)   |
+| `event_hour`     | UInt8                  | ✅ (auto)    | Час события (0-23)                              |
 
 **Параметры таблицы:**
+
 - **ENGINE:** MergeTree()
 - **PARTITION BY:** `event_month`
 - **ORDER BY:** `(campaign_id, event_type, timestamp, event_id)`
@@ -670,6 +720,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 - **SETTINGS:** `index_granularity = 8192, allow_experimental_object_type = 1`
 
 **Индексы:**
+
 - `idx_user_id` — Bloom filter на `user_id`
 - `idx_session_id` — Bloom filter на `session_id`
 - `idx_activity_id` — Bloom filter на `activity_id`
@@ -682,27 +733,28 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 Хранение событий управления (администрирование, модерация, уведомления, интеграции).
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `event_id` | UUID | ✅ (auto) | Уникальный идентификатор события |
-| `client_id` | LowCardinality(String) | ✅ | ID клиента |
-| `campaign_id` | LowCardinality(String) | ✅ | ID кампании |
-| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'main'`) |
-| `timestamp` | DateTime64(3, 'UTC') | ✅ | Время события |
-| `session_id` | String | ✅ | ID сессии |
-| `crm_user_id` | UUID | ✅ | ID пользователя CRM |
-| `entity_type` | LowCardinality(String) | ✅ | Тип сущности CRM |
-| `entity_id` | String | ✅ | ID сущности CRM |
-| `action_type` | LowCardinality(String) | ✅ | Тип действия над сущностью |
-| `event_type` | LowCardinality(String) | ✅ | Тип события |
-| `source` | LowCardinality(String) | ✅ | Источник события |
-| `criticality` | LowCardinality(String) | ✅ | Критичность: `low`, `medium`, `high` |
-| `payload` | Object('json') | ❌ | Дополнительные данные (JSON) |
-| `event_date` | Date | ✅ (auto) | Дата события |
-| `event_month` | String | ✅ (auto) | Месяц события (YYYYMM) |
-| `event_hour` | UInt8 | ✅ (auto) | Час события (0-23) |
+| Поле             | Тип                    | Обязательное | Описание                             |
+| ---------------- | ---------------------- | ------------ | ------------------------------------ |
+| `event_id`       | UUID                   | ✅ (auto)    | Уникальный идентификатор события     |
+| `client_id`      | LowCardinality(String) | ✅           | ID клиента                           |
+| `campaign_id`    | LowCardinality(String) | ✅           | ID кампании                          |
+| `subcampaign_id` | LowCardinality(String) | ❌           | ID подкампании (default: `'main'`)   |
+| `timestamp`      | DateTime64(3, 'UTC')   | ✅           | Время события                        |
+| `session_id`     | String                 | ✅           | ID сессии                            |
+| `crm_user_id`    | UUID                   | ✅           | ID пользователя CRM                  |
+| `entity_type`    | LowCardinality(String) | ✅           | Тип сущности CRM                     |
+| `entity_id`      | String                 | ✅           | ID сущности CRM                      |
+| `action_type`    | LowCardinality(String) | ✅           | Тип действия над сущностью           |
+| `event_type`     | LowCardinality(String) | ✅           | Тип события                          |
+| `source`         | LowCardinality(String) | ✅           | Источник события                     |
+| `criticality`    | LowCardinality(String) | ✅           | Критичность: `low`, `medium`, `high` |
+| `payload`        | Object('json')         | ❌           | Дополнительные данные (JSON)         |
+| `event_date`     | Date                   | ✅ (auto)    | Дата события                         |
+| `event_month`    | String                 | ✅ (auto)    | Месяц события (YYYYMM)               |
+| `event_hour`     | UInt8                  | ✅ (auto)    | Час события (0-23)                   |
 
 **Параметры таблицы:**
+
 - **ENGINE:** MergeTree()
 - **PARTITION BY:** `event_month`
 - **ORDER BY:** `(event_type, timestamp, event_id)`
@@ -711,6 +763,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 - **SETTINGS:** `index_granularity = 8192, allow_experimental_object_type = 1`
 
 **Индексы:**
+
 - `idx_crm_user` — Bloom filter на `crm_user_id`
 - `idx_entity_type` — Bloom filter на `entity_type`
 - `idx_entity_id` — Bloom filter на `entity_id`
@@ -722,26 +775,27 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 Хранение технических событий (ошибки, производительность, здоровье сервисов).
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `event_id` | UUID | ✅ (auto) | Уникальный идентификатор события |
-| `client_id` | LowCardinality(String) | ✅ | ID клиента |
-| `campaign_id` | LowCardinality(String) | ✅ | ID кампании |
-| `subcampaign_id` | LowCardinality(String) | ❌ | ID подкампании (default: `'unknown'`) |
-| `timestamp` | DateTime64(3, 'UTC') | ✅ | Время события |
-| `instance_id` | LowCardinality(String) | ✅ | ID инстанса источника |
-| `host_name` | Nullable(String) | ❌ | Хост источника |
-| `error_code` | LowCardinality(String) | ✅ | Код события (default: `'none'`) |
-| `event_type` | LowCardinality(String) | ✅ | Тип события |
-| `source` | LowCardinality(String) | ✅ | Источник события |
-| `criticality` | LowCardinality(String) | ✅ | Критичность: `low`, `medium`, `high` |
-| `severity` | LowCardinality(String) | ✅ | Важность: `warning`, `error`, `failure` |
-| `payload` | Object('json') | ❌ | Дополнительные данные (JSON) |
-| `event_date` | Date | ✅ (auto) | Дата события |
-| `event_month` | String | ✅ (auto) | Месяц события (YYYYMM) |
-| `event_hour` | UInt8 | ✅ (auto) | Час события (0-23) |
+| Поле             | Тип                    | Обязательное | Описание                                |
+| ---------------- | ---------------------- | ------------ | --------------------------------------- |
+| `event_id`       | UUID                   | ✅ (auto)    | Уникальный идентификатор события        |
+| `client_id`      | LowCardinality(String) | ✅           | ID клиента                              |
+| `campaign_id`    | LowCardinality(String) | ✅           | ID кампании                             |
+| `subcampaign_id` | LowCardinality(String) | ❌           | ID подкампании (default: `'unknown'`)   |
+| `timestamp`      | DateTime64(3, 'UTC')   | ✅           | Время события                           |
+| `instance_id`    | LowCardinality(String) | ✅           | ID инстанса источника                   |
+| `host_name`      | Nullable(String)       | ❌           | Хост источника                          |
+| `error_code`     | LowCardinality(String) | ✅           | Код события (default: `'none'`)         |
+| `event_type`     | LowCardinality(String) | ✅           | Тип события                             |
+| `source`         | LowCardinality(String) | ✅           | Источник события                        |
+| `criticality`    | LowCardinality(String) | ✅           | Критичность: `low`, `medium`, `high`    |
+| `severity`       | LowCardinality(String) | ✅           | Важность: `warning`, `error`, `failure` |
+| `payload`        | Object('json')         | ❌           | Дополнительные данные (JSON)            |
+| `event_date`     | Date                   | ✅ (auto)    | Дата события                            |
+| `event_month`    | String                 | ✅ (auto)    | Месяц события (YYYYMM)                  |
+| `event_hour`     | UInt8                  | ✅ (auto)    | Час события (0-23)                      |
 
 **Параметры таблицы:**
+
 - **ENGINE:** MergeTree()
 - **PARTITION BY:** `event_month`
 - **ORDER BY:** `(severity, event_type, timestamp, event_id)`
@@ -750,6 +804,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 - **SETTINGS:** `index_granularity = 8192, allow_experimental_object_type = 1`
 
 **Индексы:**
+
 - `idx_instance` — Bloom filter на `instance_id`
 - `idx_severity` — Bloom filter на `severity`
 - `idx_error_code` — Bloom filter на `error_code`
@@ -760,9 +815,9 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 ### Несоответствия между DTO и SQL схемами (требуют внимания)
 
-| Проблема | Описание |
-|----------|----------|
-| ⚠️ | В SQL `user_events.session_id String NOT NULL` (без default), но в DTO нет валидации на обязательность |
+| Проблема | Описание                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------ |
+| ⚠️       | В SQL `user_events.session_id String NOT NULL` (без default), но в DTO нет валидации на обязательность |
 
 > **Примечание:** Рекомендуется добавить валидацию `@IsString()` для поля `session_id` в `UserEventDto` и `CrmEventDto`.
 
