@@ -5,151 +5,163 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
+import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import initSqlJs, { Database } from 'sql.js';
+import { CreateEventDto } from '../events/dto/create-event.dto';
 import { ClickHouseRepository } from '../clickhouse/clickhouse.repository';
-import {
-  CreateEventDto,
-  UserEventDto,
-  CrmEventDto,
-  SystemEventDto,
-} from '../events/dto/create-event.dto';
 
 export interface QueuedEvent {
-  id: string;
-  data: CreateEventDto;
-  table: 'user_events' | 'crm_events' | 'system_events';
-  queuedAt: number;
+  id: number;
+  event_id: string;
+  event_data: string;
+  table_name: string;
+  created_at: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
 }
 
 @Injectable()
 export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EventQueueService.name);
-
-  // In-memory буфер (для режима без Redis)
-  private memoryBuffer: QueuedEvent[] = [];
-  private readonly memoryMaxSize: number;
-
-  // Redis клиент (для режима с Redis)
-  private redisClient: Redis | null = null;
-  private readonly isRedisEnabled: boolean;
-  private readonly queuePrefix: string;
-
-  // Таймер сброса
+  private db: Database | null = null;
   private flushTimer: NodeJS.Timeout | null = null;
+  private readonly isEnabled: boolean;
   private readonly flushIntervalMs: number;
+  private readonly batchSize: number;
+  private readonly dbPath: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly clickHouseRepo: ClickHouseRepository,
   ) {
-    this.isRedisEnabled = this.configService.get<boolean>(
-      'redis.enabled',
-      false,
+    this.isEnabled = this.configService.get<boolean>(
+      'queue.sqlite.enabled',
+      true,
     );
-    this.queuePrefix = this.configService.get<string>(
-      'redis.queuePrefix',
-      'event_logger',
-    );
-    this.memoryMaxSize = this.configService.get<number>('buffer.maxSize', 1000);
     this.flushIntervalMs = this.configService.get<number>(
-      'buffer.flushIntervalMs',
+      'queue.flushIntervalMs',
       5000,
+    );
+    this.batchSize = this.configService.get<number>('queue.batchSize', 100);
+    this.dbPath = this.configService.get<string>(
+      'queue.sqlite.dbPath',
+      'data/events.db',
     );
   }
 
   async onModuleInit() {
-    // Если Redis включён - подключаемся
-    if (this.isRedisEnabled) {
-      try {
-        const redisHost = this.configService.get<string>(
-          'redis.host',
-          'localhost',
-        );
-        const redisPort = this.configService.get<number>('redis.port', 6379);
-        const redisPassword = this.configService.get<string>('redis.password');
-
-        this.redisClient = new Redis({
-          host: redisHost,
-          port: redisPort,
-          password: redisPassword,
-          retryStrategy: (times) => Math.min(times * 100, 3000),
-          maxRetriesPerRequest: 3,
-        });
-
-        this.redisClient.on('connect', () => {
-          this.logger.log('Redis connected');
-        });
-
-        this.redisClient.on('error', (err) => {
-          this.logger.error(`Redis error: ${err.message}`);
-        });
-
-        // Восстановление "хвоста" после сбоя
-        await this.recoverPendingEvents();
-      } catch (error) {
-        this.logger.error(`Failed to connect to Redis: ${error.message}`);
-        this.logger.warn('Falling back to in-memory buffer');
-        this.redisClient = null;
-      }
+    if (!this.isEnabled) {
+      this.logger.log('SQLite queue disabled');
+      return;
     }
 
-    // Запуск таймера сброса
-    this.startFlushTimer();
+    try {
+      const SQL = await initSqlJs();
+      this.db = new SQL.Database();
+      this.initializeTables();
+      this.loadExistingDatabase();
+      this.startFlushTimer();
+      this.logger.log('SQLite queue initialized');
+    } catch (error) {
+      this.logger.error(`Failed to initialize SQLite: ${error.message}`);
+    }
   }
 
-  async onModuleDestroy() {
-    // Graceful shutdown - сброс остатков
-    this.logger.log('Flushing remaining events before shutdown...');
-    await this.flushBuffer();
-
-    // Остановка таймера
+  onModuleDestroy() {
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
     }
-
-    // Закрытие Redis подключения
-    if (this.redisClient) {
-      await this.redisClient.quit();
-      this.logger.log('Redis connection closed');
+    if (this.db) {
+      this.saveDatabase();
+      this.db.close();
     }
+  }
+
+  private initializeTables() {
+    this.db!.run(`
+      CREATE TABLE IF NOT EXISTS event_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id TEXT NOT NULL UNIQUE,
+        event_data TEXT NOT NULL,
+        table_name TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        processed_at DATETIME,
+        status TEXT DEFAULT 'pending'
+      )
+    `);
+    this.db!.run(
+      'CREATE INDEX IF NOT EXISTS idx_status ON event_queue(status)',
+    );
+    this.db!.run(
+      'CREATE INDEX IF NOT EXISTS idx_created_at ON event_queue(created_at)',
+    );
+    this.db!.run(
+      'CREATE INDEX IF NOT EXISTS idx_event_id ON event_queue(event_id)',
+    );
+  }
+
+  private loadExistingDatabase() {
+    const fs = require('fs');
+    const path = require('path');
+
+    // Создаём директорию если не существует
+    const dir = path.dirname(this.dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // Загружаем существующую БД если есть
+    if (fs.existsSync(this.dbPath)) {
+      const buffer = fs.readFileSync(this.dbPath);
+      if (buffer.length > 0) {
+        this.db = new (require('sql.js').Database)(buffer);
+        this.logger.log(`Loaded existing SQLite database from ${this.dbPath}`);
+      }
+    }
+  }
+
+  private saveDatabase() {
+    if (!this.db) return;
+
+    const fs = require('fs');
+    const path = require('path');
+
+    const dir = path.dirname(this.dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const data = this.db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(this.dbPath, buffer);
+    this.logger.debug(`Saved SQLite database to ${this.dbPath}`);
   }
 
   private startFlushTimer() {
     this.flushTimer = setInterval(() => {
-      this.flushBuffer();
+      this.flushBuffer().catch((err) => {
+        this.logger.error(`Flush error: ${err.message}`);
+      });
     }, this.flushIntervalMs);
   }
 
   async enqueue(
     event: CreateEventDto,
   ): Promise<{ eventId: string; table: string }> {
+    const eventId = uuidv4();
     const table = this.determineTable(event);
 
-    const queuedEvent: QueuedEvent = {
-      id: uuidv4(),
-      data: event,
-      table,
-      queuedAt: Date.now(),
-    };
-
-    if (this.isRedisEnabled && this.redisClient) {
-      // Redis режим
-      await this.redisClient.lpush(
-        this.getQueueKey(),
-        JSON.stringify(queuedEvent),
+    if (this.db) {
+      this.db.run(
+        `INSERT INTO event_queue (event_id, event_data, table_name, status) 
+         VALUES (?, ?, ?, 'pending')`,
+        [eventId, JSON.stringify(event), table],
       );
-    } else {
-      // In-memory режим
-      this.memoryBuffer.push(queuedEvent);
-
-      // Сброс при заполнении
-      if (this.memoryBuffer.length >= this.memoryMaxSize) {
-        await this.flushBuffer();
-      }
+      this.saveDatabase();
     }
 
-    return { eventId: queuedEvent.id, table };
+    return { eventId, table };
   }
 
   async enqueueBatch(
@@ -166,253 +178,226 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     return { count: events.length, tables };
   }
 
+  async flushBuffer() {
+    if (!this.db) return;
+
+    // Получаем пачку необработанных событий
+    const events = this.db.exec(`
+      SELECT * FROM event_queue 
+      WHERE status = 'pending' 
+      ORDER BY created_at 
+      LIMIT ${this.batchSize}
+    `);
+
+    if (!events[0] || events[0].values.length === 0) {
+      return;
+    }
+
+    const rows = events[0].values;
+    const columns = events[0].columns;
+
+    const queuedEvents: QueuedEvent[] = rows.map((row) => {
+      const event: any = {};
+      columns.forEach((col: string, idx: number) => {
+        event[col] = row[idx];
+      });
+      return event as QueuedEvent;
+    });
+
+    this.logger.debug(`Processing ${queuedEvents.length} events from queue`);
+
+    // Помечаем как processing
+    const eventIds = queuedEvents.map((e) => e.event_id);
+    this.db.run(
+      `
+      UPDATE event_queue 
+      SET status = 'processing', processed_at = CURRENT_TIMESTAMP 
+      WHERE event_id IN (${eventIds.map(() => '?').join(',')})
+    `,
+      eventIds,
+    );
+    this.saveDatabase();
+
+    try {
+      // Группируем по таблицам
+      const eventsByTable = queuedEvents.reduce(
+        (acc, event) => {
+          acc[event.table_name] = acc[event.table_name] || [];
+          acc[event.table_name].push(JSON.parse(event.event_data));
+          return acc;
+        },
+        {} as Record<string, any[]>,
+      );
+
+      // Отправляем в ClickHouse
+      for (const [table, tableEvents] of Object.entries(eventsByTable)) {
+        await this.insertToClickHouse(table, tableEvents);
+      }
+
+      // Помечаем как completed
+      this.db.run(
+        `
+        UPDATE event_queue 
+        SET status = 'completed' 
+        WHERE event_id IN (${eventIds.map(() => '?').join(',')})
+      `,
+        eventIds,
+      );
+      this.saveDatabase();
+
+      this.logger.log(`Successfully processed ${queuedEvents.length} events`);
+    } catch (error) {
+      this.logger.error(`Failed to process events: ${error.message}`);
+
+      // Возвращаем статус pending для повторной попытки
+      this.db.run(
+        `
+        UPDATE event_queue 
+        SET status = 'pending' 
+        WHERE event_id IN (${eventIds.map(() => '?').join(',')})
+      `,
+        eventIds,
+      );
+      this.saveDatabase();
+
+      throw error;
+    }
+  }
+
+  private async insertToClickHouse(table: string, events: any[]) {
+    switch (table) {
+      case 'user_events':
+        await this.clickHouseRepo.insertUserEvents(
+          events.map((e) => ({
+            client_id: e.client_id,
+            campaign_id: e.campaign_id,
+            subcampaign_id: e.subcampaign_id || 'unknown',
+            timestamp: e.timestamp
+              ? new Date(e.timestamp)
+                  .toISOString()
+                  .replace('T', ' ')
+                  .replace('Z', '')
+              : new Date().toISOString().replace('T', ' ').replace('Z', ''),
+            portal_id: e.portal_id || 'unknown',
+            bot_id: e.bot_id || 'unknown',
+            session_id: e.session_id,
+            user_id: e.user_id || null,
+            user_utm: e.user_utm || null,
+            crm_user_id: e.crm_user_id || null,
+            receipt_id: e.receipt_id || null,
+            code: e.code || null,
+            activity_id: e.activity_id || null,
+            prize_id: e.prize_id || null,
+            message_id: e.message_id || null,
+            event_type: e.event_type,
+            source: e.source || 'unknown',
+            criticality: e.criticality || 'low',
+            payload: e.payload || {},
+          })),
+        );
+        break;
+
+      case 'crm_events':
+        await this.clickHouseRepo.insertCrmEvents(
+          events.map((e) => ({
+            client_id: e.client_id,
+            campaign_id: e.campaign_id,
+            subcampaign_id: e.subcampaign_id || 'main',
+            timestamp: e.timestamp
+              ? new Date(e.timestamp)
+                  .toISOString()
+                  .replace('T', ' ')
+                  .replace('Z', '')
+              : new Date().toISOString().replace('T', ' ').replace('Z', ''),
+            session_id: e.session_id,
+            crm_user_id: e.crm_user_id,
+            entity_type: e.entity_type,
+            entity_id: e.entity_id,
+            action_type: e.action_type || 'default',
+            event_type: e.event_type,
+            source: e.source || 'unknown',
+            criticality: e.criticality || 'low',
+            payload: e.payload || {},
+          })),
+        );
+        break;
+
+      case 'system_events':
+        await this.clickHouseRepo.insertSystemEvents(
+          events.map((e) => ({
+            client_id: e.client_id,
+            campaign_id: e.campaign_id,
+            subcampaign_id: e.subcampaign_id || 'unknown',
+            timestamp: e.timestamp
+              ? new Date(e.timestamp)
+                  .toISOString()
+                  .replace('T', ' ')
+                  .replace('Z', '')
+              : new Date().toISOString().replace('T', ' ').replace('Z', ''),
+            instance_id: e.instance_id || 'unknown',
+            host_name: e.host_name || null,
+            error_code: e.error_code || 'none',
+            event_type: e.event_type,
+            source: e.source || 'unknown',
+            criticality: e.criticality || 'low',
+            severity: e.severity || 'unknown',
+            payload: e.payload || {},
+          })),
+        );
+        break;
+    }
+  }
+
   private determineTable(
     event: CreateEventDto,
   ): 'user_events' | 'crm_events' | 'system_events' {
-    // System events - по наличию severity или event_type начинается с system
     if (event.severity || event.event_type.startsWith('system.')) {
       return 'system_events';
     }
-
-    // CRM events - по наличию entity_type или crm_user_id
     if (event.entity_type || event.crm_user_id) {
       return 'crm_events';
     }
-
-    // Default to user events
     return 'user_events';
-  }
-
-  private getQueueKey(): string {
-    return `${this.queuePrefix}:queue`;
-  }
-
-  private getProcessingKey(): string {
-    return `${this.queuePrefix}:processing`;
-  }
-
-  private async recoverPendingEvents() {
-    if (!this.redisClient) return;
-
-    try {
-      // Забираем все "зависшие" события с прошлого запуска
-      const pending = await this.redisClient.lrange(this.getQueueKey(), 0, -1);
-
-      if (pending.length > 0) {
-        this.logger.log(
-          `Recovering ${pending.length} pending events from Redis...`,
-        );
-
-        const eventsToRecover: QueuedEvent[] = [];
-
-        for (const eventJson of pending) {
-          try {
-            const event = JSON.parse(eventJson) as QueuedEvent;
-            eventsToRecover.push(event);
-          } catch (error) {
-            this.logger.error(
-              `Failed to parse recovered event: ${error.message}`,
-            );
-          }
-        }
-
-        if (eventsToRecover.length > 0) {
-          // Отправляем восстановленные события в ClickHouse
-          await this.insertEvents(eventsToRecover);
-
-          // Очищаем очередь после восстановления
-          await this.redisClient.del(this.getQueueKey());
-          this.logger.log(
-            `Recovery complete: ${eventsToRecover.length} events processed`,
-          );
-        }
-      }
-    } catch (error) {
-      this.logger.error(`Recovery failed: ${error.message}`);
-    }
-  }
-
-  private async flushBuffer() {
-    if (this.isRedisEnabled && this.redisClient) {
-      // Redis режим - пакетная обработка
-      const batchSize = 100;
-
-      try {
-        while (true) {
-          // Забираем пачку из очереди
-          const eventsJson = await this.redisClient.lrange(
-            this.getQueueKey(),
-            0,
-            batchSize - 1,
-          );
-
-          if (eventsJson.length === 0) break;
-
-          try {
-            // Перемещаем в "processing" (на случай сбоя)
-            await this.redisClient.lpush(
-              this.getProcessingKey(),
-              ...eventsJson,
-            );
-            await this.redisClient.ltrim(
-              this.getQueueKey(),
-              eventsJson.length,
-              -1,
-            );
-
-            // Парсим и отправляем в ClickHouse
-            const events: QueuedEvent[] = eventsJson.map((json) =>
-              JSON.parse(json),
-            );
-            await this.insertEvents(events);
-
-            // Очищаем processing после успешной записи
-            await this.redisClient.del(this.getProcessingKey());
-          } catch (error) {
-            this.logger.error(
-              `Flush failed: ${error.message}. Events remain in processing.`,
-            );
-            break;
-          }
-        }
-      } catch (error) {
-        this.logger.error(`Redis flush error: ${error.message}`);
-      }
-    } else {
-      // In-memory режим
-      if (this.memoryBuffer.length > 0) {
-        await this.insertEvents(this.memoryBuffer);
-        this.memoryBuffer = [];
-      }
-    }
-  }
-
-  private async insertEvents(events: QueuedEvent[]) {
-    const eventsByTable = events.reduce(
-      (acc, event) => {
-        acc[event.table] = acc[event.table] || [];
-        acc[event.table].push(event);
-        return acc;
-      },
-      {} as Record<string, QueuedEvent[]>,
-    );
-
-    for (const [table, tableEvents] of Object.entries(eventsByTable)) {
-      try {
-        switch (table) {
-          case 'user_events':
-            await this.insertUserEvents(tableEvents);
-            break;
-          case 'crm_events':
-            await this.insertCrmEvents(tableEvents);
-            break;
-          case 'system_events':
-            await this.insertSystemEvents(tableEvents);
-            break;
-        }
-        this.logger.log(`Inserted ${tableEvents.length} events into ${table}`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to insert events into ${table}: ${error.message}`,
-        );
-        throw error;
-      }
-    }
-  }
-
-  private async insertUserEvents(events: QueuedEvent[]): Promise<void> {
-    const userEvents = events.map((e) => {
-      const data = e.data as UserEventDto;
-      return {
-        client_id: data.client_id,
-        campaign_id: data.campaign_id,
-        subcampaign_id: data.subcampaign_id || 'unknown',
-        timestamp: data.timestamp ? new Date(data.timestamp).toISOString().replace('T', ' ').replace('Z', '') : new Date().toISOString().replace('T', ' ').replace('Z', ''),
-        portal_id: data.portal_id || 'unknown',
-        bot_id: data.bot_id || 'unknown',
-        session_id: data.session_id,
-        user_id: data.user_id || null,
-        user_utm: data.user_utm || null,
-        crm_user_id: data.crm_user_id || null,
-        receipt_id: data.receipt_id || null,
-        code: data.code || null,
-        activity_id: data.activity_id || null,
-        prize_id: data.prize_id || null,
-        message_id: data.message_id || null,
-        event_type: data.event_type,
-        source: data.source || 'unknown',
-        criticality: data.criticality || 'low',
-        payload: data.payload || {},
-      };
-    });
-
-    await this.clickHouseRepo.insertUserEvents(userEvents);
-  }
-
-  private async insertCrmEvents(events: QueuedEvent[]): Promise<void> {
-    const crmEvents = events.map((e) => {
-      const data = e.data as CrmEventDto;
-      return {
-        client_id: data.client_id,
-        campaign_id: data.campaign_id,
-        subcampaign_id: data.subcampaign_id || 'main',
-        timestamp: data.timestamp ? new Date(data.timestamp).toISOString().replace('T', ' ').replace('Z', '') : new Date().toISOString().replace('T', ' ').replace('Z', ''),
-        session_id: data.session_id,
-        crm_user_id: data.crm_user_id,
-        entity_type: data.entity_type,
-        entity_id: data.entity_id,
-        action_type: data.action_type || 'default',
-        event_type: data.event_type,
-        source: data.source || 'unknown',
-        criticality: data.criticality || 'low',
-        payload: data.payload || {},
-      };
-    });
-
-    await this.clickHouseRepo.insertCrmEvents(crmEvents);
-  }
-
-  private async insertSystemEvents(events: QueuedEvent[]): Promise<void> {
-    const systemEvents = events.map((e) => {
-      const data = e.data as SystemEventDto;
-      return {
-        client_id: data.client_id,
-        campaign_id: data.campaign_id,
-        subcampaign_id: data.subcampaign_id || 'unknown',
-        timestamp: data.timestamp ? new Date(data.timestamp).toISOString().replace('T', ' ').replace('Z', '') : new Date().toISOString().replace('T', ' ').replace('Z', ''),
-        instance_id: data.instance_id || 'unknown',
-        host_name: data.host_name || null,
-        error_code: data.error_code || 'none',
-        event_type: data.event_type,
-        source: data.source || 'unknown',
-        criticality: data.criticality || 'low',
-        severity: data.severity || 'unknown',
-        payload: data.payload || {},
-      };
-    });
-
-    await this.clickHouseRepo.insertSystemEvents(systemEvents);
   }
 
   getQueueDepth(): {
     user_events: number;
     crm_events: number;
     system_events: number;
-    redis?: number;
+    total: number;
   } {
-    if (this.isRedisEnabled) {
-      return {
-        user_events: 0,
-        crm_events: 0,
-        system_events: 0,
-        redis: 0, // Redis queue depth would require additional tracking
-      };
+    if (!this.db) {
+      return { user_events: 0, crm_events: 0, system_events: 0, total: 0 };
     }
 
+    const result = this.db.exec(`
+      SELECT 
+        SUM(CASE WHEN table_name = 'user_events' THEN 1 ELSE 0 END) as user_events,
+        SUM(CASE WHEN table_name = 'crm_events' THEN 1 ELSE 0 END) as crm_events,
+        SUM(CASE WHEN table_name = 'system_events' THEN 1 ELSE 0 END) as system_events,
+        COUNT(*) as total
+      FROM event_queue 
+      WHERE status = 'pending'
+    `);
+
+    if (!result[0] || !result[0].values[0]) {
+      return { user_events: 0, crm_events: 0, system_events: 0, total: 0 };
+    }
+
+    const row = result[0].values[0];
     return {
-      user_events: this.memoryBuffer.length,
-      crm_events: 0,
-      system_events: 0,
+      user_events: row[0] || 0,
+      crm_events: row[1] || 0,
+      system_events: row[2] || 0,
+      total: row[3] || 0,
     };
+  }
+
+  async clearCompletedEvents() {
+    if (!this.db) return;
+
+    this.db.run(`DELETE FROM event_queue WHERE status = 'completed'`);
+    this.saveDatabase();
+    this.logger.log('Cleared completed events from queue');
   }
 }
