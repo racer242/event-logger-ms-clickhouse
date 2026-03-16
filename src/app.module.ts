@@ -11,12 +11,20 @@ import clickhouseConfig from './config/clickhouse.config';
 import bufferConfig from './config/buffer.config';
 import securityConfig from './config/security.config';
 import throttleConfig from './config/throttle.config';
+import queueConfig from './config/queue.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, clickhouseConfig, bufferConfig, securityConfig, throttleConfig],
+      load: [
+        appConfig,
+        clickhouseConfig,
+        bufferConfig,
+        securityConfig,
+        throttleConfig,
+        queueConfig,
+      ],
       envFilePath: ['.env.local', '.env'],
     }),
     ThrottlerModule.forRoot([
