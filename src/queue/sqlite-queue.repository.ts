@@ -1,8 +1,12 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import Database from 'better-sqlite3';
 
 export interface QueuedEvent {
   id: number;
@@ -21,7 +25,10 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
   private readonly dbPath: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.dbPath = this.configService.get<string>('queue.sqlite.dbPath', 'data/events.db');
+    this.dbPath = this.configService.get<string>(
+      'queue.sqlite.dbPath',
+      'data/events.db',
+    );
   }
 
   onModuleInit() {
@@ -41,13 +48,14 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Created directory ${dir}`);
     }
 
+    const Database = require('better-sqlite3');
     this.db = new Database(this.dbPath);
-    
+
     if (!this.db) {
       this.logger.error('Failed to create SQLite database');
       return;
     }
-    
+
     // Включаем WAL режим для лучшей производительности
     this.db.pragma('journal_mode = WAL');
 
@@ -65,13 +73,23 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
     `);
 
     // Создаём индексы
-    this.db.exec('CREATE INDEX IF NOT EXISTS idx_status ON event_queue(status)');
-    this.db.exec('CREATE INDEX IF NOT EXISTS idx_created_at ON event_queue(created_at)');
-    this.db.exec('CREATE INDEX IF NOT EXISTS idx_event_id ON event_queue(event_id)');
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_status ON event_queue(status)',
+    );
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_created_at ON event_queue(created_at)',
+    );
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_event_id ON event_queue(event_id)',
+    );
 
-    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM event_queue WHERE status = ?');
+    const stmt = this.db.prepare(
+      'SELECT COUNT(*) as count FROM event_queue WHERE status = ?',
+    );
     const pendingCount = stmt.get('pending') as { count: number };
-    this.logger.log(`SQLite database initialized at ${this.dbPath}. Pending events: ${pendingCount.count}`);
+    this.logger.log(
+      `SQLite database initialized at ${this.dbPath}. Pending events: ${pendingCount.count}`,
+    );
   }
 
   insert(eventId: string, eventData: string, tableName: string): void {
@@ -84,7 +102,9 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
     stmt.run(eventId, eventData, tableName);
   }
 
-  insertBatch(events: Array<{ eventId: string; eventData: string; tableName: string }>): void {
+  insertBatch(
+    events: Array<{ eventId: string; eventData: string; tableName: string }>,
+  ): void {
     if (!this.db) return;
 
     const insert = this.db.prepare(`
@@ -92,13 +112,17 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
       VALUES (?, ?, ?, 'pending')
     `);
 
-    const insertMany = this.db.transaction((eventsToInsert: Array<[string, string, string]>) => {
-      for (const [eventId, eventData, tableName] of eventsToInsert) {
-        insert.run(eventId, eventData, tableName);
-      }
-    });
+    const insertMany = this.db.transaction(
+      (eventsToInsert: Array<[string, string, string]>) => {
+        for (const [eventId, eventData, tableName] of eventsToInsert) {
+          insert.run(eventId, eventData, tableName);
+        }
+      },
+    );
 
-    const batchData = events.map(e => [e.eventId, e.eventData, e.tableName] as [string, string, string]);
+    const batchData = events.map(
+      (e) => [e.eventId, e.eventData, e.tableName] as [string, string, string],
+    );
     insertMany(batchData);
   }
 
@@ -172,12 +196,19 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
   deleteCompleted(): number {
     if (!this.db) return 0;
 
-    const stmt = this.db.prepare(`DELETE FROM event_queue WHERE status = 'completed'`);
+    const stmt = this.db.prepare(
+      `DELETE FROM event_queue WHERE status = 'completed'`,
+    );
     const result = stmt.run();
     return result.changes;
   }
 
-  getPendingCount(): { user_events: number; crm_events: number; system_events: number; total: number } {
+  getPendingCount(): {
+    user_events: number;
+    crm_events: number;
+    system_events: number;
+    total: number;
+  } {
     if (!this.db) {
       return { user_events: 0, crm_events: 0, system_events: 0, total: 0 };
     }
@@ -192,7 +223,12 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
       WHERE status = 'pending'
     `);
 
-    const result = stmt.get() as { user_events: number; crm_events: number; system_events: number; total: number };
+    const result = stmt.get() as {
+      user_events: number;
+      crm_events: number;
+      system_events: number;
+      total: number;
+    };
 
     return {
       user_events: result.user_events || 0,
