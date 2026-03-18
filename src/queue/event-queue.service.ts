@@ -153,7 +153,6 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       `Starting flush timer with interval ${this.flushIntervalMs}ms`,
     );
     this.flushTimer = setInterval(() => {
-      this.logger.debug('Flush timer tick - checking for pending events');
       this.flushBuffer().catch((err) => {
         this.logger.error(`Flush error: ${err.message}`, err.stack);
       });
