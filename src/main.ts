@@ -165,10 +165,9 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
 +==============================================================================+
 |  QUEUE CONFIGURATION (SQLite)                                                |
 |  ---------------------------                                                 |
-|  - Type:                 ${pad(queueType.toUpperCase(), 54)}|
-|  - Enabled:              ${pad(sqliteEnabled ? 'Yes (' + sqliteDbPath + ')' : 'No', 54)}|
-|  - Flush Interval:       ${pad(String(queueFlushInterval) + ' ms', 54)}|
-|  - Batch Size:           ${pad(String(queueBatchSize), 54)}|
+|  - Type:                 ${pad(queueType.toUpperCase(), 52)}|
+|  - Flush Interval:       ${pad(String(queueFlushInterval) + ' ms', 52)}|
+|  - Batch Size:           ${pad(String(queueBatchSize), 52)}|
 +==============================================================================+
 |  SECURITY                                                                    |
 |  ----------                                                                  |

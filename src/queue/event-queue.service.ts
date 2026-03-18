@@ -57,10 +57,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const SQL = await initSqlJs();
-      this.db = new SQL.Database();
-      this.initializeTables();
-      this.loadExistingDatabase();
+      await this.loadOrCreateDatabase();
       this.startFlushTimer();
       this.logger.log('SQLite queue initialized');
     } catch (error) {
@@ -68,18 +65,40 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  onModuleDestroy() {
-    if (this.flushTimer) {
-      clearInterval(this.flushTimer);
-    }
-    if (this.db) {
-      this.saveDatabase();
-      this.db.close();
-    }
-  }
+  private async loadOrCreateDatabase() {
+    const fs = require('fs');
+    const path = require('path');
+    const initSqlJs = require('sql.js');
 
-  private initializeTables() {
-    this.db!.run(`
+    // Создаём директорию если не существует
+    const dir = path.dirname(this.dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      this.logger.log(`Created directory ${dir}`);
+    }
+
+    // Проверяем существует ли файл БД
+    const dbExists = fs.existsSync(this.dbPath);
+
+    if (dbExists) {
+      const buffer = fs.readFileSync(this.dbPath);
+      if (buffer.length > 0) {
+        const SQL = await initSqlJs();
+        this.db = new SQL.Database(buffer);
+        this.logger.log(`Loaded existing SQLite database from ${this.dbPath}`);
+      } else {
+        const SQL = await initSqlJs();
+        this.db = new SQL.Database();
+        this.logger.log(`Creating new SQLite database at ${this.dbPath}`);
+      }
+    } else {
+      const SQL = await initSqlJs();
+      this.db = new SQL.Database();
+      this.logger.log(`Creating new SQLite database at ${this.dbPath}`);
+    }
+
+    // Создаём таблицы
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS event_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_id TEXT NOT NULL UNIQUE,
@@ -90,34 +109,25 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         status TEXT DEFAULT 'pending'
       )
     `);
-    this.db!.run(
-      'CREATE INDEX IF NOT EXISTS idx_status ON event_queue(status)',
-    );
-    this.db!.run(
+    this.db.run('CREATE INDEX IF NOT EXISTS idx_status ON event_queue(status)');
+    this.db.run(
       'CREATE INDEX IF NOT EXISTS idx_created_at ON event_queue(created_at)',
     );
-    this.db!.run(
+    this.db.run(
       'CREATE INDEX IF NOT EXISTS idx_event_id ON event_queue(event_id)',
     );
+
+    // Сохраняем сразу после инициализации
+    this.saveDatabase();
   }
 
-  private loadExistingDatabase() {
-    const fs = require('fs');
-    const path = require('path');
-
-    // Создаём директорию если не существует
-    const dir = path.dirname(this.dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  onModuleDestroy() {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
     }
-
-    // Загружаем существующую БД если есть
-    if (fs.existsSync(this.dbPath)) {
-      const buffer = fs.readFileSync(this.dbPath);
-      if (buffer.length > 0) {
-        this.db = new (require('sql.js').Database)(buffer);
-        this.logger.log(`Loaded existing SQLite database from ${this.dbPath}`);
-      }
+    if (this.db) {
+      this.saveDatabase();
+      this.db.close();
     }
   }
 
@@ -139,9 +149,13 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private startFlushTimer() {
+    this.logger.log(
+      `Starting flush timer with interval ${this.flushIntervalMs}ms`,
+    );
     this.flushTimer = setInterval(() => {
+      this.logger.debug('Flush timer tick - checking for pending events');
       this.flushBuffer().catch((err) => {
-        this.logger.error(`Flush error: ${err.message}`);
+        this.logger.error(`Flush error: ${err.message}`, err.stack);
       });
     }, this.flushIntervalMs);
   }
@@ -183,13 +197,14 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
 
     // Получаем пачку необработанных событий
     const events = this.db.exec(`
-      SELECT * FROM event_queue 
-      WHERE status = 'pending' 
-      ORDER BY created_at 
+      SELECT * FROM event_queue
+      WHERE status = 'pending'
+      ORDER BY created_at
       LIMIT ${this.batchSize}
     `);
 
     if (!events[0] || events[0].values.length === 0) {
+      this.logger.debug('No pending events in queue');
       return;
     }
 
@@ -204,7 +219,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       return event as QueuedEvent;
     });
 
-    this.logger.debug(`Processing ${queuedEvents.length} events from queue`);
+    this.logger.log(`Processing ${queuedEvents.length} events from queue`);
 
     // Помечаем как processing
     const eventIds = queuedEvents.map((e) => e.event_id);
