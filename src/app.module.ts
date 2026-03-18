@@ -6,6 +6,7 @@ import { ClickHouseModule } from './clickhouse/clickhouse.module';
 import { ClickHouseDataModule } from './clickhouse/clickhouse-data.module';
 import { RedisModule } from './redis/redis.module';
 import { SecurityModule } from './security/security.module';
+import { QueueModule } from './queue/queue.module';
 import appConfig from './config/app.config';
 import clickhouseConfig from './config/clickhouse.config';
 import bufferConfig from './config/buffer.config';
@@ -36,6 +37,7 @@ import queueConfig from './config/queue.config';
     RedisModule,
     ClickHouseModule,
     ClickHouseDataModule,
+    QueueModule,
     EventsModule,
     SecurityModule,
   ],
