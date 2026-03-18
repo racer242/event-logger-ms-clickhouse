@@ -76,6 +76,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
 
   private initializeDatabase() {
     const path = require('path');
+    const Database = require('better-sqlite3');
 
     // Создаём директорию если не существует
     const dir = path.dirname(this.dbPath);
@@ -86,6 +87,8 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
 
     // Открываем или создаём БД
     this.db = new Database(this.dbPath);
+
+    if (!this.db) return;
 
     // Включаем WAL режим для лучшей производительности
     this.db.pragma('journal_mode = WAL');
@@ -114,9 +117,10 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       'CREATE INDEX IF NOT EXISTS idx_event_id ON event_queue(event_id)',
     );
 
-    const pendingCount = this.db
-      .prepare('SELECT COUNT(*) as count FROM event_queue WHERE status = ?')
-      .get('pending') as { count: number };
+    const stmt = this.db.prepare(
+      'SELECT COUNT(*) as count FROM event_queue WHERE status = ?',
+    );
+    const pendingCount = stmt.get('pending') as { count: number };
     this.logger.log(
       `SQLite database initialized at ${this.dbPath}. Pending events: ${pendingCount.count}`,
     );
