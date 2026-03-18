@@ -223,34 +223,83 @@ docker-compose down
 
 ## Конфигурация (.env)
 
-| Переменная                         | Описание                                          | По умолчанию        |
-| ---------------------------------- | ------------------------------------------------- | ------------------- |
-| `PORT`                             | Порт приложения                                   | `3000`              |
-| `HOST`                             | Хост приложения                                   | `localhost`         |
-| `CLICKHOUSE_HOST`                  | Хост ClickHouse                                   | `localhost`         |
-| `CLICKHOUSE_PORT`                  | Порт ClickHouse (HTTP)                            | `8123`              |
-| `CLICKHOUSE_USER`                  | Пользователь ClickHouse                           | `default`           |
-| `CLICKHOUSE_PASSWORD`              | Пароль ClickHouse                                 | ``                  |
-| `CLICKHOUSE_DATABASE`              | База данных                                       | `event_logger`      |
-| `CLICKHOUSE_MAX_CONNECTIONS`       | Максимум подключений                              | `10`                |
-| `CLICKHOUSE_SKIP_HEALTH_CHECK`     | **Отключить проверку БД при старте** (true/false) | `false`             |
-| `CLICKHOUSE_ASYNC_INSERT`          | **Асинхронная вставка** (0/1)                     | `0`                 |
-| `CLICKHOUSE_WAIT_FOR_ASYNC_INSERT` | **Ожидание асинхронной вставки** (0/1)            | `0`                 |
-| `REDIS_ENABLED`                    | **Включить Redis** (true/false)                   | `false`             |
-| `REDIS_HOST`                       | Хост Redis                                        | `localhost`         |
-| `REDIS_PORT`                       | Порт Redis                                        | `6379`              |
-| `REDIS_PASSWORD`                   | Пароль Redis                                      | ``                  |
-| `QUEUE_PREFIX`                     | Префикс очереди                                   | `event_logger`      |
-| `BUFFER_MAX_SIZE`                  | Максимальный размер буфера                        | `1000`              |
-| `BUFFER_FLUSH_INTERVAL_MS`         | Интервал сброса буфера (мс)                       | `5000`              |
-| `API_KEYS`                         | Список API ключей через запятую                   | `dev-api-key-12345` |
-| `SWAGGER_ENABLED`                  | Включить Swagger                                  | `true`              |
+### Основное приложение
+
+| Переменная  | Описание                           | По умолчанию  |
+| ----------- | ---------------------------------- | ------------- |
+| `NODE_ENV`  | Окружение (development/production) | `development` |
+| `PORT`      | Порт приложения                    | `3000`        |
+| `HOST`      | Хост приложения                    | `localhost`   |
+| `LOG_LEVEL` | Уровень логирования                | `debug`       |
+
+### ClickHouse
+
+| Переменная                         | Описание                                          | По умолчанию   |
+| ---------------------------------- | ------------------------------------------------- | -------------- |
+| `CLICKHOUSE_HOST`                  | Хост ClickHouse                                   | `localhost`    |
+| `CLICKHOUSE_PORT`                  | Порт ClickHouse (HTTP)                            | `8123`         |
+| `CLICKHOUSE_USER`                  | Пользователь ClickHouse                           | `default`      |
+| `CLICKHOUSE_PASSWORD`              | Пароль ClickHouse                                 | ``             |
+| `CLICKHOUSE_DATABASE`              | База данных                                       | `event_logger` |
+| `CLICKHOUSE_MAX_CONNECTIONS`       | Максимум подключений                              | `10`           |
+| `CLICKHOUSE_SKIP_HEALTH_CHECK`     | **Отключить проверку БД при старте** (true/false) | `false`        |
+| `CLICKHOUSE_ASYNC_INSERT`          | **Асинхронная вставка** (0/1)                     | `0`            |
+| `CLICKHOUSE_WAIT_FOR_ASYNC_INSERT` | **Ожидание асинхронной вставки** (0/1)            | `0`            |
+
+### Redis (опционально)
+
+| Переменная                | Описание                                             | По умолчанию   |
+| ------------------------- | ---------------------------------------------------- | -------------- |
+| `REDIS_ENABLED`           | **Включить Redis** (true/false)                      | `false`        |
+| `REDIS_HOST`              | Хост Redis                                           | `localhost`    |
+| `REDIS_PORT`              | Порт Redis                                           | `6379`         |
+| `REDIS_PASSWORD`          | Пароль Redis                                         | ``             |
+| `QUEUE_PREFIX`            | Префикс ключей Redis                                 | `event_logger` |
+| `REDIS_SKIP_HEALTH_CHECK` | **Отключить проверку Redis при старте** (true/false) | `false`        |
+
+### Очередь событий (SQLite)
+
+| Переменная                | Описание                                 | По умолчанию     |
+| ------------------------- | ---------------------------------------- | ---------------- |
+| `QUEUE_TYPE`              | Тип очереди: `sqlite`, `memory`, `redis` | `sqlite`         |
+| `SQLITE_ENABLED`          | **Включить SQLite очередь** (true/false) | `true`           |
+| `SQLITE_DB_PATH`          | Путь к файлу базы данных SQLite          | `data/events.db` |
+| `QUEUE_FLUSH_INTERVAL_MS` | **Интервал обработки очереди** (мс)      | `5000`           |
+| `QUEUE_BATCH_SIZE`        | **Максимум событий за одну обработку**   | `100`            |
+
+### Буфер (устарело, используется очередь)
+
+| Переменная                 | Описание                    | По умолчанию |
+| -------------------------- | --------------------------- | ------------ |
+| `BUFFER_MAX_SIZE`          | Максимальный размер буфера  | `1000`       |
+| `BUFFER_FLUSH_INTERVAL_MS` | Интервал сброса буфера (мс) | `5000`       |
+
+### Безопасность
+
+| Переменная       | Описание                        | По умолчанию                           |
+| ---------------- | ------------------------------- | -------------------------------------- |
+| `API_KEY_HEADER` | Заголовок для API ключа         | `X-API-Key`                            |
+| `API_KEYS`       | Список API ключей через запятую | `dev-api-key-12345,prod-api-key-67890` |
+
+### Throttling (ограничение запросов)
+
+| Переменная       | Описание                   | По умолчанию |
+| ---------------- | -------------------------- | ------------ |
+| `THROTTLE_TTL`   | Время жизни окна (секунды) | `60`         |
+| `THROTTLE_LIMIT` | Максимум запросов в окно   | `100`        |
+
+### Swagger
+
+| Переменная        | Описание          | По умолчанию |
+| ----------------- | ----------------- | ------------ |
+| `SWAGGER_ENABLED` | Включить Swagger  | `true`       |
+| `SWAGGER_PATH`    | Путь к Swagger UI | `/api/docs`  |
 
 > **Примечание:** Установите `CLICKHOUSE_SKIP_HEALTH_CHECK=true`, чтобы приложение запускалось даже при недоступности ClickHouse. Это полезно для разработки или когда БД развёртывается отдельно.
 
-> **Примечание:** Установите `REDIS_ENABLED=true`, чтобы использовать Redis для хранения очереди событий вместо памяти.
+> **Примечание:** По умолчанию используется **SQLite очередь** (`QUEUE_TYPE=sqlite`). Для использования Redis установите `QUEUE_TYPE=redis` и `REDIS_ENABLED=true`.
 
-> **Примечание:** Установите `REDIS_SKIP_HEALTH_CHECK=true`, чтобы приложение запускалось даже при недоступности Redis (при включённом Redis).
+> **Примечание:** Для production рекомендуется использовать `QUEUE_TYPE=sqlite` или `QUEUE_TYPE=redis` для гарантии доставки событий.
 
 ## События
 
