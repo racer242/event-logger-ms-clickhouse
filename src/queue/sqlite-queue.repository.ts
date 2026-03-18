@@ -21,7 +21,7 @@ export interface QueuedEvent {
 @Injectable()
 export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SqliteQueueRepository.name);
-  private db: Database.Database | null = null;
+  private db: any | null = null;
   private readonly dbPath: string;
 
   constructor(private readonly configService: ConfigService) {
