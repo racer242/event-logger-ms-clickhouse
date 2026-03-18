@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
-import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import initSqlJs, { Database } from 'sql.js';
+import Database from 'better-sqlite3';
 import { CreateEventDto } from '../events/dto/create-event.dto';
 import { ClickHouseRepository } from '../clickhouse/clickhouse.repository';
 
@@ -24,7 +24,7 @@ export interface QueuedEvent {
 @Injectable()
 export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EventQueueService.name);
-  private db: Database | null = null;
+  private db: Database.Database | null = null;
   private flushTimer: NodeJS.Timeout | null = null;
   private readonly isEnabled: boolean;
   private readonly flushIntervalMs: number;
@@ -57,7 +57,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      await this.loadOrCreateDatabase();
+      this.initializeDatabase();
       this.startFlushTimer();
       this.logger.log('SQLite queue initialized');
     } catch (error) {
@@ -65,40 +65,33 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async loadOrCreateDatabase() {
-    const fs = require('fs');
+  onModuleDestroy() {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+    }
+    if (this.db) {
+      this.db.close();
+    }
+  }
+
+  private initializeDatabase() {
     const path = require('path');
-    const initSqlJs = require('sql.js');
 
     // Создаём директорию если не существует
     const dir = path.dirname(this.dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
       this.logger.log(`Created directory ${dir}`);
     }
 
-    // Проверяем существует ли файл БД
-    const dbExists = fs.existsSync(this.dbPath);
+    // Открываем или создаём БД
+    this.db = new Database(this.dbPath);
 
-    if (dbExists) {
-      const buffer = fs.readFileSync(this.dbPath);
-      if (buffer.length > 0) {
-        const SQL = await initSqlJs();
-        this.db = new SQL.Database(buffer);
-        this.logger.log(`Loaded existing SQLite database from ${this.dbPath}`);
-      } else {
-        const SQL = await initSqlJs();
-        this.db = new SQL.Database();
-        this.logger.log(`Creating new SQLite database at ${this.dbPath}`);
-      }
-    } else {
-      const SQL = await initSqlJs();
-      this.db = new SQL.Database();
-      this.logger.log(`Creating new SQLite database at ${this.dbPath}`);
-    }
+    // Включаем WAL режим для лучшей производительности
+    this.db.pragma('journal_mode = WAL');
 
-    // Создаём таблицы
-    this.db.run(`
+    // Создаём таблицу
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS event_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_id TEXT NOT NULL UNIQUE,
@@ -109,43 +102,24 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
         status TEXT DEFAULT 'pending'
       )
     `);
-    this.db.run('CREATE INDEX IF NOT EXISTS idx_status ON event_queue(status)');
-    this.db.run(
+
+    // Создаём индексы
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_status ON event_queue(status)',
+    );
+    this.db.exec(
       'CREATE INDEX IF NOT EXISTS idx_created_at ON event_queue(created_at)',
     );
-    this.db.run(
+    this.db.exec(
       'CREATE INDEX IF NOT EXISTS idx_event_id ON event_queue(event_id)',
     );
 
-    // Сохраняем сразу после инициализации
-    this.saveDatabase();
-  }
-
-  onModuleDestroy() {
-    if (this.flushTimer) {
-      clearInterval(this.flushTimer);
-    }
-    if (this.db) {
-      this.saveDatabase();
-      this.db.close();
-    }
-  }
-
-  private saveDatabase() {
-    if (!this.db) return;
-
-    const fs = require('fs');
-    const path = require('path');
-
-    const dir = path.dirname(this.dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    const data = this.db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(this.dbPath, buffer);
-    this.logger.debug(`Saved SQLite database to ${this.dbPath}`);
+    const pendingCount = this.db
+      .prepare('SELECT COUNT(*) as count FROM event_queue WHERE status = ?')
+      .get('pending') as { count: number };
+    this.logger.log(
+      `SQLite database initialized at ${this.dbPath}. Pending events: ${pendingCount.count}`,
+    );
   }
 
   private startFlushTimer() {
@@ -166,12 +140,11 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     const table = this.determineTable(event);
 
     if (this.db) {
-      this.db.run(
-        `INSERT INTO event_queue (event_id, event_data, table_name, status) 
-         VALUES (?, ?, ?, 'pending')`,
-        [eventId, JSON.stringify(event), table],
-      );
-      this.saveDatabase();
+      const stmt = this.db.prepare(`
+        INSERT INTO event_queue (event_id, event_data, table_name, status)
+        VALUES (?, ?, ?, 'pending')
+      `);
+      stmt.run(eventId, JSON.stringify(event), table);
     }
 
     return { eventId, table };
@@ -182,11 +155,40 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   ): Promise<{ count: number; tables: Record<string, number> }> {
     const tables: Record<string, number> = {};
 
-    for (const event of events) {
-      const table = this.determineTable(event);
-      tables[table] = (tables[table] || 0) + 1;
-      await this.enqueue(event);
+    if (!this.db) {
+      return { count: events.length, tables };
     }
+
+    const insert = this.db.prepare(`
+      INSERT INTO event_queue (event_id, event_data, table_name, status)
+      VALUES (?, ?, ?, 'pending')
+    `);
+
+    const insertMany = this.db.transaction(
+      (
+        eventsToInsert: Array<{
+          eventId: string;
+          event: CreateEventDto;
+          table: string;
+        }>,
+      ) => {
+        for (const { eventId, event, table } of eventsToInsert) {
+          insert.run(eventId, JSON.stringify(event), table);
+        }
+      },
+    );
+
+    const eventsToInsert = events.map((event) => ({
+      eventId: uuidv4(),
+      event,
+      table: this.determineTable(event),
+    }));
+
+    insertMany(eventsToInsert);
+
+    eventsToInsert.forEach(({ table }) => {
+      tables[table] = (tables[table] || 0) + 1;
+    });
 
     return { count: events.length, tables };
   }
@@ -195,46 +197,41 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     if (!this.db) return;
 
     // Получаем пачку необработанных событий
-    const events = this.db.exec(`
+    const stmt = this.db.prepare(`
       SELECT * FROM event_queue
       WHERE status = 'pending'
       ORDER BY created_at
-      LIMIT ${this.batchSize}
+      LIMIT ?
     `);
 
-    if (!events[0] || events[0].values.length === 0) {
-      this.logger.debug('No pending events in queue');
+    const rows = stmt.all(this.batchSize) as QueuedEvent[];
+
+    if (rows.length === 0) {
       return;
     }
 
-    const rows = events[0].values;
-    const columns = events[0].columns;
+    this.logger.log(`Processing ${rows.length} events from queue`);
 
-    const queuedEvents: QueuedEvent[] = rows.map((row) => {
-      const event: any = {};
-      columns.forEach((col: string, idx: number) => {
-        event[col] = row[idx];
-      });
-      return event as QueuedEvent;
-    });
-
-    this.logger.log(`Processing ${queuedEvents.length} events from queue`);
-
-    // Помечаем как processing
-    const eventIds = queuedEvents.map((e) => e.event_id);
-    this.db.run(
-      `
-      UPDATE event_queue 
-      SET status = 'processing', processed_at = CURRENT_TIMESTAMP 
-      WHERE event_id IN (${eventIds.map(() => '?').join(',')})
-    `,
-      eventIds,
-    );
-    this.saveDatabase();
+    const eventIds = rows.map((e) => e.event_id);
 
     try {
+      // Помечаем как processing
+      const updateStmt = this.db.prepare(`
+        UPDATE event_queue
+        SET status = 'processing', processed_at = CURRENT_TIMESTAMP
+        WHERE event_id = ?
+      `);
+
+      const updateMany = this.db.transaction((ids: string[]) => {
+        for (const id of ids) {
+          updateStmt.run(id);
+        }
+      });
+
+      updateMany(eventIds);
+
       // Группируем по таблицам
-      const eventsByTable = queuedEvents.reduce(
+      const eventsByTable = rows.reduce(
         (acc, event) => {
           acc[event.table_name] = acc[event.table_name] || [];
           acc[event.table_name].push(JSON.parse(event.event_data));
@@ -249,30 +246,41 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       }
 
       // Помечаем как completed
-      this.db.run(
-        `
-        UPDATE event_queue 
-        SET status = 'completed' 
-        WHERE event_id IN (${eventIds.map(() => '?').join(',')})
-      `,
-        eventIds,
-      );
-      this.saveDatabase();
+      const completeStmt = this.db.prepare(`
+        UPDATE event_queue
+        SET status = 'completed'
+        WHERE event_id = ?
+      `);
 
-      this.logger.log(`Successfully processed ${queuedEvents.length} events`);
+      const completeMany = this.db.transaction((ids: string[]) => {
+        for (const id of ids) {
+          completeStmt.run(id);
+        }
+      });
+
+      completeMany(eventIds);
+
+      this.logger.log(`Successfully processed ${rows.length} events`);
+
+      // Очищаем completed события (опционально)
+      this.clearCompletedEvents();
     } catch (error) {
       this.logger.error(`Failed to process events: ${error.message}`);
 
       // Возвращаем статус pending для повторной попытки
-      this.db.run(
-        `
-        UPDATE event_queue 
-        SET status = 'pending' 
-        WHERE event_id IN (${eventIds.map(() => '?').join(',')})
-      `,
-        eventIds,
-      );
-      this.saveDatabase();
+      const revertStmt = this.db.prepare(`
+        UPDATE event_queue
+        SET status = 'pending'
+        WHERE event_id = ?
+      `);
+
+      const revertMany = this.db.transaction((ids: string[]) => {
+        for (const id of ids) {
+          revertStmt.run(id);
+        }
+      });
+
+      revertMany(eventIds);
 
       throw error;
     }
@@ -384,7 +392,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       return { user_events: 0, crm_events: 0, system_events: 0, total: 0 };
     }
 
-    const result = this.db.exec(`
+    const stmt = this.db.prepare(`
       SELECT 
         SUM(CASE WHEN table_name = 'user_events' THEN 1 ELSE 0 END) as user_events,
         SUM(CASE WHEN table_name = 'crm_events' THEN 1 ELSE 0 END) as crm_events,
@@ -394,24 +402,33 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       WHERE status = 'pending'
     `);
 
-    if (!result[0] || !result[0].values[0]) {
-      return { user_events: 0, crm_events: 0, system_events: 0, total: 0 };
-    }
+    const result = stmt.get() as {
+      user_events: number;
+      crm_events: number;
+      system_events: number;
+      total: number;
+    };
 
-    const row = result[0].values[0];
     return {
-      user_events: row[0] || 0,
-      crm_events: row[1] || 0,
-      system_events: row[2] || 0,
-      total: row[3] || 0,
+      user_events: result.user_events || 0,
+      crm_events: result.crm_events || 0,
+      system_events: result.system_events || 0,
+      total: result.total || 0,
     };
   }
 
-  async clearCompletedEvents() {
+  clearCompletedEvents() {
     if (!this.db) return;
 
-    this.db.run(`DELETE FROM event_queue WHERE status = 'completed'`);
-    this.saveDatabase();
-    this.logger.log('Cleared completed events from queue');
+    const stmt = this.db.prepare(
+      `DELETE FROM event_queue WHERE status = 'completed'`,
+    );
+    const result = stmt.run();
+
+    if (result.changes > 0) {
+      this.logger.debug(
+        `Cleared ${result.changes} completed events from queue`,
+      );
+    }
   }
 }
