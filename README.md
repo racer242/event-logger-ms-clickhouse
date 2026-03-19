@@ -180,7 +180,7 @@ npm run start:dev
 |  ---------------------                                                       |
 |  - Environment:        development                                           |
 |  - Host:               localhost                                             |
-|  - Port:               3000                                                  |
+|  - Port:               3242                                                  |
 |  - Swagger:            Enabled (/api/docs)                                   |
 +==============================================================================+
 |  CLICKHOUSE CONNECTION                                                       |
@@ -228,7 +228,7 @@ docker-compose down
 | Переменная  | Описание                           | По умолчанию  |
 | ----------- | ---------------------------------- | ------------- |
 | `NODE_ENV`  | Окружение (development/production) | `development` |
-| `PORT`      | Порт приложения                    | `3000`        |
+| `PORT`      | Порт приложения                    | `3242`        |
 | `HOST`      | Хост приложения                    | `localhost`   |
 | `LOG_LEVEL` | Уровень логирования                | `debug`       |
 

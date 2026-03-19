@@ -19,6 +19,8 @@ import {
   ApiHeader,
   ApiExtraModels,
   getSchemaPath,
+  ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { EventsService } from './events.service';
 import { CreateEventDto, BatchEventsDto } from './dto/create-event.dto';
@@ -35,7 +37,28 @@ export class EventsController {
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Приём одиночного события' })
+  @ApiOperation({
+    summary: 'Приём одиночного события',
+    description: 'Принимает одиночное событие для сохранения в ClickHouse',
+  })
+  @ApiBody({
+    schema: {
+      example: {
+        client_id: 'client-001',
+        campaign_id: '550e8400-e29b-41d4-a716-446655440001',
+        session_id: 'sess-12345-abcde',
+        portal_id: 'portal-main',
+        bot_id: 'bot-none',
+        timestamp: '2026-03-02T12:00:00.000Z',
+        event_type: 'activity.complete',
+        source: 'activity-service',
+        criticality: 'medium',
+        user_id: '550e8400-e29b-41d4-a716-446655440000',
+        activity_id: '550e8400-e29b-41d4-a716-446655440010',
+        payload: { result: 'win', reward_amount: 50 },
+      },
+    },
+  })
   @ApiResponse({
     status: 202,
     description: 'Событие принято в обработку',
@@ -63,7 +86,43 @@ export class EventsController {
 
   @Post('batch')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Приём пакетных событий' })
+  @ApiOperation({
+    summary: 'Приём пакетных событий',
+    description:
+      'Принимает пакет событий для массового сохранения в ClickHouse',
+  })
+  @ApiBody({
+    schema: {
+      example: {
+        events: [
+          {
+            client_id: 'client-001',
+            campaign_id: '550e8400-e29b-41d4-a716-446655440001',
+            session_id: 'sess-12345-abcde',
+            portal_id: 'portal-main',
+            bot_id: 'bot-none',
+            timestamp: '2026-03-02T12:00:00.000Z',
+            event_type: 'page_view.open',
+            source: 'portal-frontend',
+            criticality: 'low',
+          },
+          {
+            client_id: 'client-001',
+            campaign_id: '550e8400-e29b-41d4-a716-446655440001',
+            session_id: 'sess-12345-abcde',
+            portal_id: 'portal-main',
+            bot_id: 'bot-none',
+            timestamp: '2026-03-02T12:00:05.000Z',
+            event_type: 'activity.start',
+            source: 'activity-service',
+            criticality: 'low',
+            user_id: '550e8400-e29b-41d4-a716-446655440000',
+            activity_id: '550e8400-e29b-41d4-a716-446655440010',
+          },
+        ],
+      },
+    },
+  })
   @ApiResponse({
     status: 202,
     description: 'События приняты в обработку',
@@ -90,7 +149,44 @@ export class EventsController {
   }
 
   @Get('query')
-  @ApiOperation({ summary: 'Запрос событий с фильтрацией' })
+  @ApiOperation({
+    summary: 'Запрос событий с фильтрацией',
+    description:
+      'Возвращает события из указанной таблицы с применёнными фильтрами',
+  })
+  @ApiQuery({
+    name: 'table',
+    required: true,
+    example: 'user_events',
+    enum: ['user_events', 'crm_events', 'system_events'],
+  })
+  @ApiQuery({
+    name: 'campaign_id',
+    required: false,
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  @ApiQuery({
+    name: 'event_type',
+    required: false,
+    example: 'activity.complete',
+  })
+  @ApiQuery({
+    name: 'user_id',
+    required: false,
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiQuery({
+    name: 'date_from',
+    required: false,
+    example: '2026-03-01T00:00:00.000Z',
+  })
+  @ApiQuery({
+    name: 'date_to',
+    required: false,
+    example: '2026-03-31T23:59:59.999Z',
+  })
+  @ApiQuery({ name: 'limit', required: false, example: 100 })
+  @ApiQuery({ name: 'offset', required: false, example: 0 })
   @ApiResponse({
     status: 200,
     description: 'События получены',
@@ -117,7 +213,23 @@ export class EventsController {
 
   @Post('export')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Экспорт данных' })
+  @ApiOperation({
+    summary: 'Экспорт данных',
+    description: 'Запускает экспорт событий в указанном формате',
+  })
+  @ApiBody({
+    schema: {
+      example: {
+        table: 'user_events',
+        date_from: '2026-03-01T00:00:00.000Z',
+        date_to: '2026-03-31T23:59:59.999Z',
+        format: 'json',
+        event_types: ['activity.complete', 'registration.complete'],
+        campaign_id: '550e8400-e29b-41d4-a716-446655440001',
+        destination: 'local',
+      },
+    },
+  })
   @ApiResponse({
     status: 202,
     description: 'Экспорт запущен',

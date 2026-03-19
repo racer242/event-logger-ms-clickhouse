@@ -1,4 +1,11 @@
-import { Controller, Get, Delete, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Delete,
+  Param,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { EventsService } from './events.service';
 
@@ -16,7 +23,10 @@ export class HealthController {
       type: 'object',
       properties: {
         status: { type: 'string', enum: ['healthy', 'degraded', 'unhealthy'] },
-        checks: { type: 'object', additionalProperties: { type: 'string', enum: ['ok', 'error'] } },
+        checks: {
+          type: 'object',
+          additionalProperties: { type: 'string', enum: ['ok', 'error'] },
+        },
         metrics: {
           type: 'object',
           properties: {
@@ -34,16 +44,28 @@ export class HealthController {
 
   @Delete('api/v1/users/:userId/events')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Удаление данных пользователя (152-ФЗ)' })
+  @ApiOperation({
+    summary: 'Удаление данных пользователя (152-ФЗ)',
+    description:
+      'Удаляет все события пользователя из базы данных для соответствия Федеральному закону №152-ФЗ "О персональных данных"',
+  })
   @ApiResponse({
     status: 200,
     description: 'Данные пользователя удалены',
     schema: {
       type: 'object',
       properties: {
-        user_id: { type: 'string', format: 'uuid' },
-        tables_affected: { type: 'array', items: { type: 'string' } },
-        status: { type: 'string' },
+        user_id: {
+          type: 'string',
+          format: 'uuid',
+          example: '550e8400-e29b-41d4-a716-446655440000',
+        },
+        tables_affected: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['user_events', 'crm_events'],
+        },
+        status: { type: 'string', example: 'completed' },
         completed_at: { type: 'string', format: 'date-time' },
       },
     },
