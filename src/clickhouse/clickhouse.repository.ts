@@ -508,6 +508,9 @@ export class ClickHouseRepository implements OnModuleInit {
     });
 
     const result = await resultSet.json<{ count: string }>();
+    if (!result || !result[0] || !result[0].count) {
+      return 0;
+    }
     return parseInt(result[0].count, 10);
   }
 
