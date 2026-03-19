@@ -93,17 +93,17 @@ docker compose up -d
 
 ## Переменные окружения (.env)
 
-| Переменная | Значение по умолчанию | Описание |
-|------------|----------------------|----------|
-| `CLICKHOUSE_HOST` | - | Хост ClickHouse |
-| `CLICKHOUSE_PORT` | `8123` | Порт ClickHouse |
-| `CLICKHOUSE_USER` | `default` | Пользователь ClickHouse |
-| `CLICKHOUSE_PASSWORD` | - | Пароль ClickHouse |
-| `CLICKHOUSE_DATABASE` | `event_logger` | База данных |
-| `CLICKHOUSE_ASYNC_INSERT` | `0` | Асинхронная вставка (0/1) |
-| `CLICKHOUSE_WAIT_FOR_ASYNC_INSERT` | `0` | Ожидание вставки (0/1) |
-| `API_KEYS` | - | API ключи (через запятую) |
-| `PORT` | `3000` | Порт приложения |
+| Переменная                         | Значение по умолчанию | Описание                  |
+| ---------------------------------- | --------------------- | ------------------------- |
+| `CLICKHOUSE_HOST`                  | -                     | Хост ClickHouse           |
+| `CLICKHOUSE_PORT`                  | `8123`                | Порт ClickHouse           |
+| `CLICKHOUSE_USER`                  | `default`             | Пользователь ClickHouse   |
+| `CLICKHOUSE_PASSWORD`              | -                     | Пароль ClickHouse         |
+| `CLICKHOUSE_DATABASE`              | `event_logger`        | База данных               |
+| `CLICKHOUSE_ASYNC_INSERT`          | `0`                   | Асинхронная вставка (0/1) |
+| `CLICKHOUSE_WAIT_FOR_ASYNC_INSERT` | `0`                   | Ожидание вставки (0/1)    |
+| `API_KEYS`                         | -                     | API ключи (через запятую) |
+| `PORT`                             | `3242`                | Порт приложения           |
 
 ## Мониторинг
 
