@@ -164,7 +164,7 @@ cp .env.example .env
 # Запуск в режиме разработки
 npm run start:dev
 
-# Swagger доступен по адресу: http://localhost:3000/api/docs
+# Swagger доступен по адресу: http://localhost:3242/api/docs
 ```
 
 При старте приложения в консоль выводится информационный баннер с конфигурацией:
@@ -202,9 +202,9 @@ npm run start:dev
 +==============================================================================+
 |  ENDPOINTS                                                                   |
 |  -----------                                                                 |
-|  - API:                http://localhost:3000/api/v1/events                   |
-|  - Health:             http://localhost:3000/health                          |
-|  - Swagger UI:         http://localhost:3000/api/docs                        |
+|  - API:                http://localhost:3242/api/v1/events                   |
+|  - Health:             http://localhost:3242/health                          |
+|  - Swagger UI:         http://localhost:3242/api/docs                        |
 +==============================================================================+
 ```
 
@@ -487,7 +487,7 @@ docker-compose down
 
 ```bash
 # Регистрация пользователя
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -505,7 +505,7 @@ curl -X POST http://localhost:3000/api/v1/events \
   }'
 
 # Участие в активности
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -524,7 +524,7 @@ curl -X POST http://localhost:3000/api/v1/events \
   }'
 
 # Просмотр страницы
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -541,7 +541,7 @@ curl -X POST http://localhost:3000/api/v1/events \
   }'
 
 # Отправка обратной связи
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -563,7 +563,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 ```bash
 # Действие администратора
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -582,7 +582,7 @@ curl -X POST http://localhost:3000/api/v1/events \
   }'
 
 # Модерация заявки
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -601,7 +601,7 @@ curl -X POST http://localhost:3000/api/v1/events \
   }'
 
 # Уведомление пользователю
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -624,7 +624,7 @@ curl -X POST http://localhost:3000/api/v1/events \
 
 ```bash
 # Ошибка API
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -646,7 +646,7 @@ curl -X POST http://localhost:3000/api/v1/events \
   }'
 
 # Метрики производительности
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -668,7 +668,7 @@ curl -X POST http://localhost:3000/api/v1/events \
   }'
 
 # Проверка здоровья
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{
@@ -919,7 +919,7 @@ src/
 
 ```bash
 # Пример запроса с API ключом
-curl -X POST http://localhost:3000/api/v1/events \
+curl -X POST http://localhost:3242/api/v1/events \
   -H "X-API-Key: dev-api-key-12345" \
   -H "Content-Type: application/json" \
   -d '{"event_type": "activity.completed", ...}'

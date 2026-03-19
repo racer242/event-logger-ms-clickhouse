@@ -9,14 +9,14 @@ services:
     image: event-logger-ms-clickhouse-event-logger:latest
     container_name: event-logger-api
     ports:
-      - '3000:3000'
+      - '3242:3242'
     volumes:
       - ./data:/app/data # SQLite database file
     env_file:
       - .env
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3242
       - HOST=0.0.0.0
       - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
       - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
@@ -47,7 +47,7 @@ services:
       - SWAGGER_PATH=${SWAGGER_PATH:-/api/docs}
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/health']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3242/health']
       interval: 10s
       timeout: 5s
       retries: 5
