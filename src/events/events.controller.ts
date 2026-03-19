@@ -58,7 +58,6 @@ export class EventsController {
     @Body() event: CreateEventDto,
     @Headers('x-api-key') apiKey: string,
   ) {
-    this.logger.debug(`API Key: ${apiKey}`);
     return this.eventsService.createEvent(event);
   }
 
@@ -87,7 +86,6 @@ export class EventsController {
     @Body() batchDto: BatchEventsDto,
     @Headers('x-api-key') apiKey: string,
   ) {
-    this.logger.debug(`API Key: ${apiKey}`);
     return this.eventsService.createBatchEvents(batchDto.events);
   }
 
@@ -114,7 +112,6 @@ export class EventsController {
     @Query() query: QueryEventsDto,
     @Headers('x-api-key') apiKey: string,
   ) {
-    this.logger.debug(`API Key: ${apiKey}`);
     return this.eventsService.queryEvents(query);
   }
 
@@ -142,8 +139,7 @@ export class EventsController {
     @Body() exportDto: ExportEventsDto,
     @Headers('x-api-key') apiKey: string,
   ) {
-    this.logger.debug(`API Key: ${apiKey}`);
-    // TODO: Implement export functionality
+    this.logger.debug('Export functionality not yet implemented');
     return {
       export_id: 'export-' + Date.now(),
       status: 'processing' as const,
