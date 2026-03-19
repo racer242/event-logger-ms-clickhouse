@@ -91,13 +91,6 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
     false,
   );
 
-  // Buffer config
-  const bufferMaxSize = configService.get<number>('buffer.maxSize', 1000);
-  const bufferFlushInterval = configService.get<number>(
-    'buffer.flushIntervalMs',
-    5000,
-  );
-
   // Queue config
   const queueType = configService.get<string>('queue.type', 'sqlite');
   const sqliteEnabled = configService.get<boolean>(
@@ -158,14 +151,10 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
 |  - Port:               ${pad(redisEnabled ? String(redisPort) : 'N/A (in-memory)', 54)}|
 |  - Skip Health Check:  ${pad(String(redisSkipHealthCheck), 54)}|
 +==============================================================================+
-|  BUFFER CONFIGURATION                                                        |
-|  -----------------------                                                     |
-|  - Max Buffer Size:    ${pad(String(bufferMaxSize), 54)}|
-|  - Flush Interval:     ${pad(String(bufferFlushInterval) + ' ms', 54)}|
-+==============================================================================+
 |  QUEUE CONFIGURATION (SQLite)                                                |
 |  ---------------------------                                                 |
 |  - Type:                 ${pad(queueType.toUpperCase(), 52)}|
+|  - Enabled:              ${pad(sqliteEnabled ? 'Yes (' + sqliteDbPath + ')' : 'No', 52)}|
 |  - Flush Interval:       ${pad(String(queueFlushInterval) + ' ms', 52)}|
 |  - Batch Size:           ${pad(String(queueBatchSize), 52)}|
 +==============================================================================+
