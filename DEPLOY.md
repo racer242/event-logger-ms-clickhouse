@@ -53,10 +53,10 @@ docker compose logs -f
 
 ```bash
 # Проверка здоровья
-curl http://gif.murafon.srv08.ru:3000/health
+curl http://gif.murafon.srv08.ru:3242/health
 
 # Swagger документация
-# Откройте в браузере: http://gif.murafon.srv08.ru:3000/api/docs
+# Откройте в браузере: http://gif.murafon.srv08.ru:3242/api/docs
 ```
 
 ## Управление контейнером
