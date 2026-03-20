@@ -53,8 +53,9 @@ export class EventsController {
         event_type: 'activity.complete',
         source: 'activity-service',
         criticality: 'medium',
-        user_id: '550e8400-e29b-41d4-a716-446655440000',
-        activity_id: '550e8400-e29b-41d4-a716-446655440010',
+        user_id: 12345,
+        activity_id: 67890,
+        activity_type: 'quiz',
         payload: { result: 'win', reward_amount: 50 },
       },
     },
@@ -116,8 +117,9 @@ export class EventsController {
             event_type: 'activity.start',
             source: 'activity-service',
             criticality: 'low',
-            user_id: '550e8400-e29b-41d4-a716-446655440000',
-            activity_id: '550e8400-e29b-41d4-a716-446655440010',
+            user_id: 12345,
+            activity_id: 67890,
+            activity_type: 'quiz',
           },
         ],
       },
@@ -173,7 +175,8 @@ export class EventsController {
   @ApiQuery({
     name: 'user_id',
     required: false,
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    example: 12345,
+    type: Number,
   })
   @ApiQuery({
     name: 'date_from',

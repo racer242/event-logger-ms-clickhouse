@@ -24,7 +24,7 @@ CREATE TABLE event_logger.user_events
     activity_id     Nullable(Int64),                                         -- ID активности | API - необязательный
     activity_type   Nullable(String),                                        -- Тип активности | API - необязательный
     prize_id        Nullable(Int64),                                         -- ID приза | API - необязательный
-    message_id      Nullable(UUID),                                         -- ID сообщения | API - необязательный
+    message_id      Nullable(Int64),                                         -- ID сообщения | API - необязательный
     
     -- ============================================
     -- КЛАССИФИКАЦИЯ СОБЫТИЯ

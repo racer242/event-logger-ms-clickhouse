@@ -325,6 +325,7 @@ docker-compose down
 | `activity_id`    | number | ❌           | ID активности          |
 | `activity_type`  | string | ❌           | Тип активности         |
 | `prize_id`       | number | ❌           | ID приза               |
+| `message_id`     | number | ❌           | ID сообщения           |
 | `payload`        | object | ❌           | Дополнительные данные  |
 
 **Примеры event_type:**
@@ -745,7 +746,7 @@ curl -X POST http://localhost:3242/api/v1/events \
 | `activity_id`    | Nullable(Int64)        | ❌           | ID активности                                   |
 | `activity_type`  | Nullable(String)       | ❌           | Тип активности                                  |
 | `prize_id`       | Nullable(Int64)        | ❌           | ID приза                                        |
-| `message_id`     | Nullable(UUID)         | ❌           | ID сообщения (для обратной связи)               |
+| `message_id`     | Nullable(Int64)        | ❌           | ID сообщения (для обратной связи)               |
 | `event_type`     | LowCardinality(String) | ✅           | Тип события (например, `registration.complete`) |
 | `source`         | LowCardinality(String) | ✅           | Источник события (название сервиса)             |
 | `criticality`    | LowCardinality(String) | ✅           | Критичность: `low`, `medium`, `high`            |

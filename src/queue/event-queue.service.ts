@@ -191,7 +191,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
                   .replace('Z', '')
               : new Date().toISOString().replace('T', ' ').replace('Z', ''),
             session_id: e.session_id,
-            crm_user_id: e.crm_user_id,
+            crm_user_id: e.crm_user_id || null,
             entity_type: e.entity_type,
             entity_id: e.entity_id,
             action_type: e.action_type || 'default',

@@ -92,8 +92,8 @@ export class UserEventDto {
   prize_id?: number;
 
   @IsOptional()
-  @IsUUID()
-  message_id?: string;
+  @IsInt()
+  message_id?: number;
 
   // КЛАССИФИКАЦИЯ СОБЫТИЯ
   @IsString()
@@ -129,8 +129,8 @@ export class CrmEventDto {
   @IsString()
   session_id: string;
 
-  @IsUUID()
-  crm_user_id: string;
+  @IsInt()
+  crm_user_id: number;
 
   @IsString()
   entity_type: string;
@@ -153,7 +153,7 @@ export class CrmEventDto {
 
   // СПЕЦИФИЧЕСКИЕ ДАННЫЕ
   @IsOptional()
-  @IsUUID()
+  @IsString()
   subcampaign_id?: string;
 
   @IsOptional()
@@ -281,8 +281,8 @@ export class CreateEventDto {
   prize_id?: number;
 
   @IsOptional()
-  @IsUUID()
-  message_id?: string;
+  @IsInt()
+  message_id?: number;
 
   @IsOptional()
   @IsString()

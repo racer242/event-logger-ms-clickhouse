@@ -77,7 +77,7 @@ export class ClickHouseRepository implements OnModuleInit {
             activity_id     Nullable(Int64),
             activity_type   Nullable(String),
             prize_id        Nullable(Int64),
-            message_id      Nullable(UUID),
+            message_id      Nullable(Int64),
 
             -- КЛАССИФИКАЦИЯ СОБЫТИЯ
             event_type      LowCardinality(String)  NOT NULL,
@@ -167,7 +167,7 @@ export class ClickHouseRepository implements OnModuleInit {
             subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'main',
             timestamp       DateTime64(3, 'UTC')    NOT NULL,
             session_id      String                  NOT NULL,
-            crm_user_id     UUID                    NOT NULL,
+            crm_user_id     Nullable(Int64),
             entity_type     LowCardinality(String)  NOT NULL,
             entity_id       String                  NOT NULL,
             action_type     LowCardinality(String)  NOT NULL DEFAULT 'default',
@@ -353,7 +353,7 @@ export class ClickHouseRepository implements OnModuleInit {
       subcampaign_id: string;
       timestamp: string;
       session_id: string;
-      crm_user_id: string;
+      crm_user_id: number | null;
       entity_type: string;
       entity_id: string;
       action_type: string;
