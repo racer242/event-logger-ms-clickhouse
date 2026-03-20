@@ -56,9 +56,6 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    // Включаем WAL режим для лучшей производительности
-    this.db.pragma('journal_mode = WAL');
-
     // Создаём таблицу
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS event_queue (
