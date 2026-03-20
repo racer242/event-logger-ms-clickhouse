@@ -425,7 +425,7 @@ export class ClickHouseRepository implements OnModuleInit {
     }
 
     if (filters.user_id) {
-      conditions.push('user_id = {user_id:UUID}');
+      conditions.push('user_id = {user_id:Int64}');
       params.user_id = filters.user_id;
     }
 
@@ -481,7 +481,7 @@ export class ClickHouseRepository implements OnModuleInit {
     }
 
     if (filters.user_id) {
-      conditions.push('user_id = {user_id:UUID}');
+      conditions.push('user_id = {user_id:Int64}');
       params.user_id = filters.user_id;
     }
 
@@ -523,12 +523,12 @@ export class ClickHouseRepository implements OnModuleInit {
     );
 
     await this.client.exec({
-      query: `ALTER TABLE ${database}.user_events DELETE WHERE user_id = {userId:UUID}`,
+      query: `ALTER TABLE ${database}.user_events DELETE WHERE user_id = {userId:Int64}`,
       query_params: { userId },
     });
 
     await this.client.exec({
-      query: `ALTER TABLE ${database}.crm_events DELETE WHERE crm_user_id = {userId:UUID}`,
+      query: `ALTER TABLE ${database}.crm_events DELETE WHERE crm_user_id = {userId:Int64}`,
       query_params: { userId },
     });
   }
