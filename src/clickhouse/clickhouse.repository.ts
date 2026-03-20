@@ -69,13 +69,14 @@ export class ClickHouseRepository implements OnModuleInit {
             session_id      String                  NOT NULL,
 
             -- ОПЦИОНАЛЬНЫЕ ДАННЫЕ
-            user_id         Nullable(UUID),
+            user_id         Nullable(Int64),
             user_utm        Nullable(String),
-            crm_user_id     Nullable(UUID),
-            receipt_id      Nullable(UUID),
+            crm_user_id     Nullable(Int64),
+            receipt_id      Nullable(Int64),
             code            Nullable(String),
-            activity_id     Nullable(UUID),
-            prize_id        Nullable(UUID),
+            activity_id     Nullable(Int64),
+            activity_type   Nullable(String),
+            prize_id        Nullable(Int64),
             message_id      Nullable(UUID),
 
             -- КЛАССИФИКАЦИЯ СОБЫТИЯ
@@ -319,13 +320,14 @@ export class ClickHouseRepository implements OnModuleInit {
       portal_id: string;
       bot_id: string;
       session_id: string;
-      user_id: string | null;
+      user_id: number | null;
       user_utm: string | null;
-      crm_user_id: string | null;
-      receipt_id: string | null;
+      crm_user_id: number | null;
+      receipt_id: number | null;
       code: string | null;
-      activity_id: string | null;
-      prize_id: string | null;
+      activity_id: number | null;
+      activity_type: string | null;
+      prize_id: number | null;
       message_id: string | null;
       event_type: string;
       source: string;

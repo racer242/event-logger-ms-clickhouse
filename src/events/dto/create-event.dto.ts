@@ -1,4 +1,13 @@
-import { IsOptional, IsString, IsUUID, IsObject, IsEnum, IsNumber, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsObject,
+  IsEnum,
+  IsNumber,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum EventTable {
@@ -46,36 +55,40 @@ export class UserEventDto {
 
   // ОПЦИОНАЛЬНЫЕ ДАННЫЕ
   @IsOptional()
-  @IsUUID()
+  @IsString()
   subcampaign_id?: string;
 
   @IsOptional()
-  @IsUUID()
-  user_id?: string;
+  @IsInt()
+  user_id?: number;
 
   @IsOptional()
   @IsString()
   user_utm?: string;
 
   @IsOptional()
-  @IsUUID()
-  crm_user_id?: string;
+  @IsInt()
+  crm_user_id?: number;
 
   @IsOptional()
-  @IsUUID()
-  receipt_id?: string;
+  @IsInt()
+  receipt_id?: number;
 
   @IsOptional()
   @IsString()
   code?: string;
 
   @IsOptional()
-  @IsUUID()
-  activity_id?: string;
+  @IsInt()
+  activity_id?: number;
 
   @IsOptional()
-  @IsUUID()
-  prize_id?: string;
+  @IsString()
+  activity_type?: string;
+
+  @IsOptional()
+  @IsInt()
+  prize_id?: number;
 
   @IsOptional()
   @IsUUID()
@@ -227,8 +240,8 @@ export class CreateEventDto {
   subcampaign_id?: string;
 
   @IsOptional()
-  @IsUUID()
-  user_id?: string;
+  @IsInt()
+  user_id?: number;
 
   @IsOptional()
   @IsString()
@@ -243,24 +256,28 @@ export class CreateEventDto {
   user_utm?: string;
 
   @IsOptional()
-  @IsUUID()
-  crm_user_id?: string;
+  @IsInt()
+  crm_user_id?: number;
 
   @IsOptional()
-  @IsUUID()
-  receipt_id?: string;
+  @IsInt()
+  receipt_id?: number;
 
   @IsOptional()
   @IsString()
   code?: string;
 
   @IsOptional()
-  @IsUUID()
-  activity_id?: string;
+  @IsInt()
+  activity_id?: number;
 
   @IsOptional()
-  @IsUUID()
-  prize_id?: string;
+  @IsString()
+  activity_type?: string;
+
+  @IsOptional()
+  @IsInt()
+  prize_id?: number;
 
   @IsOptional()
   @IsUUID()

@@ -316,14 +316,15 @@ docker-compose down
 | ---------------- | ------ | ------------ | ---------------------- |
 | `portal_id`      | string | ✅           | Портал-источник        |
 | `bot_id`         | string | ✅           | Чат-бот-источник       |
-| `subcampaign_id` | UUID   | ❌           | ID подкампании         |
-| `user_id`        | UUID   | ❌           | ID пользователя        |
+| `subcampaign_id` | string | ❌           | ID подкампании         |
+| `user_id`        | number | ❌           | ID пользователя        |
 | `user_utm`       | string | ❌           | UTM-метка пользователя |
-| `crm_user_id`    | UUID   | ❌           | ID пользователя CRM    |
-| `receipt_id`     | UUID   | ❌           | ID чека                |
+| `crm_user_id`    | number | ❌           | ID пользователя CRM    |
+| `receipt_id`     | number | ❌           | ID чека                |
 | `code`           | string | ❌           | Код продукта           |
-| `activity_id`    | UUID   | ❌           | ID активности          |
-| `prize_id`       | UUID   | ❌           | ID приза               |
+| `activity_id`    | number | ❌           | ID активности          |
+| `activity_type`  | string | ❌           | Тип активности         |
+| `prize_id`       | number | ❌           | ID приза               |
 | `payload`        | object | ❌           | Дополнительные данные  |
 
 **Примеры event_type:**
@@ -692,7 +693,7 @@ curl -X POST http://localhost:3242/api/v1/events \
 - `table` (required): `user_events`, `crm_events`, `system_events`
 - `campaign_id` (optional): UUID кампании
 - `event_type` (optional): Тип события
-- `user_id` (optional): UUID пользователя
+- `user_id` (optional): ID пользователя (number)
 - `date_from`, `date_to` (optional): Временной диапазон
 - `limit`, `offset` (optional): Пагинация
 
@@ -736,13 +737,14 @@ curl -X POST http://localhost:3242/api/v1/events \
 | `portal_id`      | LowCardinality(String) | ✅           | Портал-источник события (default: `'unknown'`)  |
 | `bot_id`         | LowCardinality(String) | ✅           | Чат-бот-источник события (default: `'unknown'`) |
 | `session_id`     | String                 | ✅           | ID сессии пользователя                          |
-| `user_id`        | Nullable(UUID)         | ❌           | ID пользователя-участника                       |
+| `user_id`        | Nullable(Int64)        | ❌           | ID пользователя-участника                       |
 | `user_utm`       | Nullable(String)       | ❌           | UTM-метка пользователя                          |
-| `crm_user_id`    | Nullable(UUID)         | ❌           | ID пользователя CRM                             |
-| `receipt_id`     | Nullable(UUID)         | ❌           | ID чека                                         |
+| `crm_user_id`    | Nullable(Int64)        | ❌           | ID пользователя CRM                             |
+| `receipt_id`     | Nullable(Int64)        | ❌           | ID чека                                         |
 | `code`           | Nullable(String)       | ❌           | Код продукта                                    |
-| `activity_id`    | Nullable(UUID)         | ❌           | ID активности                                   |
-| `prize_id`       | Nullable(UUID)         | ❌           | ID приза                                        |
+| `activity_id`    | Nullable(Int64)        | ❌           | ID активности                                   |
+| `activity_type`  | Nullable(String)       | ❌           | Тип активности                                  |
+| `prize_id`       | Nullable(Int64)        | ❌           | ID приза                                        |
 | `message_id`     | Nullable(UUID)         | ❌           | ID сообщения (для обратной связи)               |
 | `event_type`     | LowCardinality(String) | ✅           | Тип события (например, `registration.complete`) |
 | `source`         | LowCardinality(String) | ✅           | Источник события (название сервиса)             |
