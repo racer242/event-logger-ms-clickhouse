@@ -42,14 +42,14 @@ export class SqliteQueueRepository implements OnModuleInit, OnModuleDestroy {
   }
 
   private initializeDatabase() {
-    const dir = join(process.cwd(), 'data');
+    const dir = '/app/data';
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
       this.logger.log(`Created directory ${dir}`);
     }
 
     const Database = require('better-sqlite3');
-    this.db = new Database(this.dbPath);
+    this.db = new Database(`${dir}/events.db`);
 
     if (!this.db) {
       this.logger.error('Failed to create SQLite database');
