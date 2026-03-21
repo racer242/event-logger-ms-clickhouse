@@ -344,11 +344,11 @@ docker-compose down
 
 | Поле             | Тип    | Обязательное | Описание                                        |
 | ---------------- | ------ | ------------ | ----------------------------------------------- |
-| `crm_user_id`    | UUID   | ✅           | ID пользователя CRM                             |
+| `crm_user_id`    | number | ✅           | ID пользователя CRM                             |
 | `entity_type`    | string | ✅           | Тип сущности CRM (user, campaign, prize, etc.)  |
 | `entity_id`      | string | ✅           | ID сущности CRM                                 |
 | `action_type`    | string | ✅           | Тип действия (create, update, delete, moderate) |
-| `subcampaign_id` | UUID   | ❌           | ID подкампании                                  |
+| `subcampaign_id` | string | ❌           | ID подкампании                                  |
 | `payload`        | object | ❌           | Дополнительные данные                           |
 
 **Примеры event_type:**
@@ -692,7 +692,7 @@ curl -X POST http://localhost:3242/api/v1/events \
 Параметры:
 
 - `table` (required): `user_events`, `crm_events`, `system_events`
-- `campaign_id` (optional): UUID кампании
+- `campaign_id` (optional): ID кампании (string)
 - `event_type` (optional): Тип события
 - `user_id` (optional): ID пользователя (number)
 - `date_from`, `date_to` (optional): Временной диапазон
@@ -786,7 +786,7 @@ curl -X POST http://localhost:3242/api/v1/events \
 | `subcampaign_id` | LowCardinality(String) | ❌           | ID подкампании (default: `'main'`)   |
 | `timestamp`      | DateTime64(3, 'UTC')   | ✅           | Время события                        |
 | `session_id`     | String                 | ✅           | ID сессии                            |
-| `crm_user_id`    | UUID                   | ✅           | ID пользователя CRM                  |
+| `crm_user_id`    | Nullable(Int64)        | ✅           | ID пользователя CRM                  |
 | `entity_type`    | LowCardinality(String) | ✅           | Тип сущности CRM                     |
 | `entity_id`      | String                 | ✅           | ID сущности CRM                      |
 | `action_type`    | LowCardinality(String) | ✅           | Тип действия над сущностью           |

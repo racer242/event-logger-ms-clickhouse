@@ -415,7 +415,7 @@ export class ClickHouseRepository implements OnModuleInit {
     const params: Record<string, any> = {};
 
     if (filters.campaign_id) {
-      conditions.push('campaign_id = {campaign_id:UUID}');
+      conditions.push('campaign_id = {campaign_id:String}');
       params.campaign_id = filters.campaign_id;
     }
 
@@ -471,7 +471,7 @@ export class ClickHouseRepository implements OnModuleInit {
     const params: Record<string, any> = {};
 
     if (filters.campaign_id) {
-      conditions.push('campaign_id = {campaign_id:UUID}');
+      conditions.push('campaign_id = {campaign_id:String}');
       params.campaign_id = filters.campaign_id;
     }
 
