@@ -390,7 +390,7 @@ docker-compose down
 ```json
 {
   "client_id": "client-001",
-  "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+  "campaign_id": "campaign-001",
   "session_id": "sess-12345-abcde",
   "portal_id": "portal-main",
   "bot_id": "bot-none",
@@ -398,8 +398,8 @@ docker-compose down
   "event_type": "activity.complete",
   "source": "activity-service",
   "criticality": "medium",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "activity_id": "550e8400-e29b-41d4-a716-446655440010",
+  "user_id": 12345,
+  "activity_id": 67890,
   "payload": {
     "result": "win",
     "reward_amount": 50
@@ -412,15 +412,15 @@ docker-compose down
 ```json
 {
   "client_id": "client-001",
-  "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+  "campaign_id": "campaign-001",
   "session_id": "sess-admin-001",
   "timestamp": "2026-03-02T12:00:00.000Z",
   "event_type": "admin.user.create",
   "source": "admin-service",
   "criticality": "high",
-  "crm_user_id": "550e8400-e29b-41d4-a716-446655440100",
+  "crm_user_id": 54321,
   "entity_type": "user",
-  "entity_id": "550e8400-e29b-41d4-a716-446655440000",
+  "entity_id": "user-001",
   "action_type": "create",
   "payload": {
     "role": "moderator"
@@ -433,7 +433,7 @@ docker-compose down
 ```json
 {
   "client_id": "client-001",
-  "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+  "campaign_id": "campaign-001",
   "session_id": "sess-system-001",
   "timestamp": "2026-03-02T12:00:00.000Z",
   "event_type": "system.error.api",
@@ -457,7 +457,7 @@ docker-compose down
   "events": [
     {
       "client_id": "client-001",
-      "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+      "campaign_id": "campaign-001",
       "session_id": "sess-12345-abcde",
       "portal_id": "portal-main",
       "bot_id": "bot-none",
@@ -468,7 +468,7 @@ docker-compose down
     },
     {
       "client_id": "client-001",
-      "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+      "campaign_id": "campaign-001",
       "session_id": "sess-12345-abcde",
       "portal_id": "portal-main",
       "bot_id": "bot-none",
@@ -476,8 +476,9 @@ docker-compose down
       "event_type": "activity.start",
       "source": "activity-service",
       "criticality": "low",
-      "user_id": "550e8400-e29b-41d4-a716-446655440000",
-      "activity_id": "550e8400-e29b-41d4-a716-446655440010"
+      "user_id": 12345,
+      "activity_id": 67890,
+      "activity_type": "quiz"
     }
   ]
 }
@@ -494,7 +495,7 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-user-001",
     "portal_id": "portal-main",
     "bot_id": "bot-none",
@@ -502,7 +503,7 @@ curl -X POST http://localhost:3242/api/v1/events \
     "event_type": "registration.complete",
     "source": "auth-service",
     "criticality": "high",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": 12345,
     "payload": { "registration_method": "phone" }
   }'
 
@@ -512,7 +513,7 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-user-001",
     "portal_id": "portal-main",
     "bot_id": "bot-none",
@@ -520,8 +521,9 @@ curl -X POST http://localhost:3242/api/v1/events \
     "event_type": "activity.complete",
     "source": "activity-service",
     "criticality": "medium",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
-    "activity_id": "550e8400-e29b-41d4-a716-446655440010",
+    "user_id": 12345,
+    "activity_id": 67890,
+    "activity_type": "quiz",
     "payload": { "result": "win", "reward_amount": 50 }
   }'
 
@@ -531,7 +533,7 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-user-001",
     "portal_id": "portal-main",
     "bot_id": "bot-none",
@@ -548,7 +550,7 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-user-001",
     "portal_id": "portal-main",
     "bot_id": "bot-none",
@@ -556,7 +558,7 @@ curl -X POST http://localhost:3242/api/v1/events \
     "event_type": "feedback.send",
     "source": "feedback-service",
     "criticality": "medium",
-    "message_id": "550e8400-e29b-41d4-a716-446655440050",
+    "message_id": 98765,
     "payload": { "rating": 5, "comment": "Отличный сервис!" }
   }'
 ```
@@ -570,15 +572,15 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-admin-001",
     "timestamp": "2026-03-02T12:15:00.000Z",
     "event_type": "admin.user.create",
     "source": "admin-service",
     "criticality": "high",
-    "crm_user_id": "550e8400-e29b-41d4-a716-446655440100",
+    "crm_user_id": 54321,
     "entity_type": "user",
-    "entity_id": "550e8400-e29b-41d4-a716-446655440000",
+    "entity_id": "user-001",
     "action_type": "create",
     "payload": { "role": "moderator" }
   }'
@@ -589,15 +591,15 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-moderator-001",
     "timestamp": "2026-03-02T12:20:00.000Z",
     "event_type": "moderation.submission.approve",
     "source": "moderation-service",
     "criticality": "high",
-    "crm_user_id": "550e8400-e29b-41d4-a716-446655440100",
+    "crm_user_id": 54321,
     "entity_type": "submission",
-    "entity_id": "550e8400-e29b-41d4-a716-446655440200",
+    "entity_id": "submission-001",
     "action_type": "approve",
     "payload": { "submission_type": "prize_claim" }
   }'
@@ -608,15 +610,15 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-notification-001",
     "timestamp": "2026-03-02T12:25:00.000Z",
     "event_type": "notification.send",
     "source": "notification-service",
     "criticality": "medium",
-    "crm_user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "crm_user_id": 54321,
     "entity_type": "user",
-    "entity_id": "550e8400-e29b-41d4-a716-446655440000",
+    "entity_id": "user-001",
     "action_type": "notify",
     "payload": { "channel": "email", "template": "welcome" }
   }'
@@ -631,7 +633,7 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-system-001",
     "timestamp": "2026-03-02T12:30:00.000Z",
     "event_type": "system.error.api",
@@ -653,7 +655,7 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-system-001",
     "timestamp": "2026-03-02T12:35:00.000Z",
     "event_type": "system.performance.metrics",
@@ -675,7 +677,7 @@ curl -X POST http://localhost:3242/api/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "client-001",
-    "campaign_id": "550e8400-e29b-41d4-a716-446655440001",
+    "campaign_id": "campaign-001",
     "session_id": "sess-system-001",
     "timestamp": "2026-03-02T12:40:00.000Z",
     "event_type": "system.health.check",
