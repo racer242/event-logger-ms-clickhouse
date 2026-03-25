@@ -1,7 +1,7 @@
 import { registerAs } from '@nestjs/config';
 
 export default registerAs('redis', () => ({
-  enabled: process.env.REDIS_ENABLED === 'true',
+  enabled: process.env.QUEUE_TYPE === 'redis',
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD || '',

@@ -146,17 +146,17 @@ function printStartupBanner(configService: ConfigService, logger: Logger) {
 +==============================================================================+
 |  REDIS CONFIGURATION                                                         |
 |  ---------------------                                                       |
-|  - Enabled:            ${pad(String(redisEnabled), 54)}|
-|  - Host:               ${pad(redisEnabled ? redisHost : 'N/A (in-memory)', 54)}|
-|  - Port:               ${pad(redisEnabled ? String(redisPort) : 'N/A (in-memory)', 54)}|
+|  - Queue Type:         ${pad(queueType.toUpperCase(), 54)}|
+|  - Redis Host:         ${pad(redisEnabled ? redisHost : 'N/A', 54)}|
+|  - Redis Port:         ${pad(redisEnabled ? String(redisPort) : 'N/A', 54)}|
 |  - Skip Health Check:  ${pad(String(redisSkipHealthCheck), 54)}|
 +==============================================================================+
-|  QUEUE CONFIGURATION (SQLite)                                                |
-|  ---------------------------                                                 |
-|  - Type:                 ${pad(queueType.toUpperCase(), 52)}|
-|  - Enabled:              ${pad(sqliteEnabled ? 'Yes (' + sqliteDbPath + ')' : 'No', 52)}|
-|  - Flush Interval:       ${pad(String(queueFlushInterval) + ' ms', 52)}|
-|  - Batch Size:           ${pad(String(queueBatchSize), 52)}|
+|  QUEUE CONFIGURATION                                                         |
+|  -----------------------                                                     |
+|  - Type:                 ${pad(queueType.toUpperCase(), 54)}|
+|  - SQLite Path:          ${pad(sqliteEnabled ? sqliteDbPath : 'N/A', 54)}|
+|  - Flush Interval:       ${pad(String(queueFlushInterval) + ' ms', 54)}|
+|  - Batch Size:           ${pad(String(queueBatchSize), 54)}|
 +==============================================================================+
 |  SECURITY                                                                    |
 |  ----------                                                                  |
