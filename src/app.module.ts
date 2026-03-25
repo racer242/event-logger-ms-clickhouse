@@ -9,6 +9,7 @@ import { SecurityModule } from './security/security.module';
 import { QueueModule } from './queue/queue.module';
 import appConfig from './config/app.config';
 import clickhouseConfig from './config/clickhouse.config';
+import redisConfig from './config/redis.config';
 import securityConfig from './config/security.config';
 import throttleConfig from './config/throttle.config';
 import queueConfig from './config/queue.config';
@@ -20,6 +21,7 @@ import queueConfig from './config/queue.config';
       load: [
         appConfig,
         clickhouseConfig,
+        redisConfig,
         securityConfig,
         throttleConfig,
         queueConfig,
