@@ -2,19 +2,28 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClickHouseRepository } from '../clickhouse/clickhouse.repository';
 import { EventQueueService } from '../queue/event-queue.service';
+import { RedisQueueRepository } from '../queue/redis-queue.repository';
 import { CreateEventDto } from '../events/dto/create-event.dto';
 import { QueryEventsDto } from '../events/dto/query-events.dto';
-import { EventResponse, BatchResponse, QueryResponse } from '../events/dto/responses.dto';
+import {
+  EventResponse,
+  BatchResponse,
+  QueryResponse,
+} from '../events/dto/responses.dto';
 
 @Injectable()
 export class EventsService {
   private readonly logger = new Logger(EventsService.name);
+  private readonly queueType: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly eventQueue: EventQueueService,
     private readonly clickHouseRepo: ClickHouseRepository,
-  ) {}
+    private readonly redisRepo: RedisQueueRepository,
+  ) {
+    this.queueType = this.configService.get<string>('queue.type', 'sqlite');
+  }
 
   async createEvent(event: CreateEventDto): Promise<EventResponse> {
     this.logger.debug(`Processing event: ${event.event_type}`);
@@ -39,7 +48,9 @@ export class EventsService {
   }
 
   async queryEvents(query: QueryEventsDto): Promise<QueryResponse> {
-    this.logger.debug(`Querying events from ${query.table} with filters: ${JSON.stringify(query)}`);
+    this.logger.debug(
+      `Querying events from ${query.table} with filters: ${JSON.stringify(query)}`,
+    );
 
     const filters: Record<string, any> = {};
     if (query.campaign_id) filters.campaign_id = query.campaign_id;
@@ -49,7 +60,12 @@ export class EventsService {
     if (query.date_to) filters.date_to = query.date_to;
 
     const [events, totalCount] = await Promise.all([
-      this.clickHouseRepo.queryEvents(query.table, filters, query.limit || 100, query.offset || 0),
+      this.clickHouseRepo.queryEvents(
+        query.table,
+        filters,
+        query.limit || 100,
+        query.offset || 0,
+      ),
       this.clickHouseRepo.countEvents(query.table, filters),
     ]);
 
@@ -72,7 +88,7 @@ export class EventsService {
     const metrics = await this.clickHouseRepo.getMetrics();
     const queueDepth = this.eventQueue.getQueueDepth();
 
-    return {
+    const health: any = {
       status: clickhouseHealthy ? 'healthy' : 'unhealthy',
       checks: {
         clickhouse: clickhouseHealthy ? 'ok' : 'error',
@@ -81,9 +97,23 @@ export class EventsService {
       },
       metrics: {
         events_received_last_hour: metrics.events_received_last_hour,
-        queue_depth: queueDepth.user_events + queueDepth.crm_events + queueDepth.system_events,
+        queue_depth:
+          queueDepth.user_events +
+          queueDepth.crm_events +
+          queueDepth.system_events,
         avg_processing_time_ms: metrics.avg_processing_time_ms,
       },
     };
+
+    // Добавляем проверку Redis если включён
+    if (this.queueType === 'redis') {
+      const redisHealthy = await this.redisRepo.healthCheck();
+      health.checks.redis = redisHealthy ? 'ok' : 'error';
+      if (!redisHealthy) {
+        health.status = 'degraded';
+      }
+    }
+
+    return health;
   }
 }

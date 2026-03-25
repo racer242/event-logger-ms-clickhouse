@@ -8,15 +8,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { EventsService } from './events.service';
-import { RedisQueueRepository } from '../queue/redis-queue.repository';
 
 @ApiTags('Health')
 @Controller()
 export class HealthController {
-  constructor(
-    private readonly eventsService: EventsService,
-    private readonly redisRepo: RedisQueueRepository,
-  ) {}
+  constructor(private readonly eventsService: EventsService) {}
 
   @Get('health')
   @ApiOperation({ summary: 'Проверка работоспособности сервиса' })
@@ -42,20 +38,8 @@ export class HealthController {
       },
     },
   })
-  async healthCheck() {
-    const health = await this.eventsService.getHealthStatus();
-
-    // Добавляем проверку Redis если включён
-    const queueType = process.env.QUEUE_TYPE || 'sqlite';
-    if (queueType === 'redis') {
-      const redisHealthy = await this.redisRepo.healthCheck();
-      (health.checks as any).redis = redisHealthy ? 'ok' : 'error';
-      if (!redisHealthy) {
-        health.status = 'degraded';
-      }
-    }
-
-    return health;
+  healthCheck() {
+    return this.eventsService.getHealthStatus();
   }
 
   @Delete('api/v1/users/:userId/events')
