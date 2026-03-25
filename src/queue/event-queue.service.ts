@@ -9,11 +9,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { CreateEventDto } from '../events/dto/create-event.dto';
 import { ClickHouseRepository } from '../clickhouse/clickhouse.repository';
 import { SqliteQueueRepository } from './sqlite-queue.repository';
+import { RedisQueueRepository } from './redis-queue.repository';
 
 @Injectable()
 export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EventQueueService.name);
-  private readonly isEnabled: boolean;
+  private readonly queueType: string;
   private readonly flushIntervalMs: number;
   private readonly batchSize: number;
   private flushTimer: NodeJS.Timeout | null = null;
@@ -21,12 +22,10 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly configService: ConfigService,
     private readonly sqliteRepo: SqliteQueueRepository,
+    private readonly redisRepo: RedisQueueRepository,
     private readonly clickHouseRepo: ClickHouseRepository,
   ) {
-    this.isEnabled = this.configService.get<boolean>(
-      'queue.sqlite.enabled',
-      true,
-    );
+    this.queueType = this.configService.get<string>('queue.type', 'sqlite');
     this.flushIntervalMs = this.configService.get<number>(
       'queue.flushIntervalMs',
       5000,
@@ -35,13 +34,13 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    if (!this.isEnabled) {
-      this.logger.log('SQLite queue disabled');
+    if (this.queueType === 'memory') {
+      this.logger.log('Memory queue mode - events processed immediately');
       return;
     }
 
     this.startFlushTimer();
-    this.logger.log('Event queue service initialized');
+    this.logger.log(`Event queue service initialized (${this.queueType})`);
   }
 
   onModuleDestroy() {
@@ -67,7 +66,17 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
     const eventId = uuidv4();
     const table = this.determineTable(event);
 
-    this.sqliteRepo.insert(eventId, JSON.stringify(event), table);
+    if (this.queueType === 'redis') {
+      await this.redisRepo.enqueue(eventId, JSON.stringify(event), table);
+    } else {
+      // sqlite по умолчанию
+      this.sqliteRepo.insert(eventId, JSON.stringify(event), table);
+    }
+
+    // Если memory - отправляем сразу в ClickHouse
+    if (this.queueType === 'memory') {
+      await this.insertToClickHouse(table, [event]);
+    }
 
     return { eventId, table };
   }
@@ -87,19 +96,80 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       };
     });
 
-    this.sqliteRepo.insertBatch(batchData);
+    if (this.queueType === 'redis') {
+      await this.redisRepo.enqueueBatch(batchData);
+    } else {
+      this.sqliteRepo.insertBatch(batchData);
+    }
+
+    // Если memory - отправляем сразу в ClickHouse
+    if (this.queueType === 'memory') {
+      const eventsByTable = this.groupEventsByTable(events);
+      for (const [table, tableEvents] of Object.entries(eventsByTable)) {
+        await this.insertToClickHouse(table, tableEvents);
+      }
+    }
 
     return { count: events.length, tables };
   }
 
   async flushBuffer() {
+    if (this.queueType === 'redis') {
+      await this.flushRedisBuffer();
+    } else {
+      await this.flushSqliteBuffer();
+    }
+  }
+
+  private async flushRedisBuffer() {
+    const rows = await this.redisRepo.getPendingEvents(this.batchSize);
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    this.logger.log(`Processing ${rows.length} events from Redis queue`);
+
+    const eventIds = rows.map((e) => e.id);
+
+    try {
+      // Группируем по таблицам
+      const eventsByTable = rows.reduce(
+        (acc, event) => {
+          acc[event.table_name] = acc[event.table_name] || [];
+          acc[event.table_name].push(JSON.parse(event.event_data));
+          return acc;
+        },
+        {} as Record<string, any[]>,
+      );
+
+      // Отправляем в ClickHouse
+      for (const [table, tableEvents] of Object.entries(eventsByTable)) {
+        await this.insertToClickHouse(table, tableEvents);
+      }
+
+      // Помечаем как completed
+      await this.redisRepo.markAsCompleted(eventIds);
+
+      this.logger.log(`Successfully processed ${rows.length} events`);
+    } catch (error) {
+      this.logger.error(`Failed to process events: ${error.message}`);
+
+      // Возвращаем статус pending для повторной попытки
+      await this.redisRepo.revertToPending(eventIds);
+
+      throw error;
+    }
+  }
+
+  private async flushSqliteBuffer() {
     const rows = this.sqliteRepo.getPendingEvents(this.batchSize);
 
     if (rows.length === 0) {
       return;
     }
 
-    this.logger.log(`Processing ${rows.length} events from queue`);
+    this.logger.log(`Processing ${rows.length} events from SQLite queue`);
 
     const eventIds = rows.map((e) => e.event_id);
 
@@ -142,6 +212,18 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
 
       throw error;
     }
+  }
+
+  private groupEventsByTable(events: CreateEventDto[]): Record<string, any[]> {
+    return events.reduce(
+      (acc, event) => {
+        const table = this.determineTable(event);
+        acc[table] = acc[table] || [];
+        acc[table].push(event);
+        return acc;
+      },
+      {} as Record<string, any[]>,
+    );
   }
 
   private async insertToClickHouse(table: string, events: any[]) {
