@@ -49,7 +49,7 @@ export class HealthController {
     const queueType = process.env.QUEUE_TYPE || 'sqlite';
     if (queueType === 'redis') {
       const redisHealthy = await this.redisRepo.healthCheck();
-      health.checks.redis = redisHealthy ? 'ok' : 'error';
+      (health.checks as any).redis = redisHealthy ? 'ok' : 'error';
       if (!redisHealthy) {
         health.status = 'degraded';
       }
