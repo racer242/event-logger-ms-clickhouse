@@ -9,6 +9,6 @@ import { ClickHouseDataModule } from '../clickhouse/clickhouse-data.module';
 @Module({
   imports: [ConfigModule, ClickHouseDataModule],
   providers: [EventQueueService, SqliteQueueRepository, RedisQueueRepository],
-  exports: [EventQueueService],
+  exports: [EventQueueService, SqliteQueueRepository, RedisQueueRepository],
 })
 export class QueueModule {}
