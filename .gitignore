@@ -44,4 +44,9 @@ docker-compose.override.yml
 # Misc
 .eslintcache
 *.tar
+
+# Database files
 *.db
+!*.db.lock
+data/*.db
+data/events.db
