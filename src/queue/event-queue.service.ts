@@ -39,7 +39,9 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.startFlushTimer();
+    if (this.queueType !== 'memory') {
+      this.startFlushTimer();
+    }
     this.logger.log(`Event queue service initialized (${this.queueType})`);
   }
 
@@ -75,7 +77,15 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
 
     // Если memory - отправляем сразу в ClickHouse
     if (this.queueType === 'memory') {
-      await this.insertToClickHouse(table, [event]);
+      this.logger.log(`Memory mode: sending event to ${table}`);
+      try {
+        await this.insertToClickHouse(table, [event]);
+        this.logger.log(`Memory mode: event sent to ${table}`);
+      } catch (error) {
+        this.logger.error(
+          `Memory mode: failed to send event: ${error.message}`,
+        );
+      }
     }
 
     return { eventId, table };
@@ -104,9 +114,20 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
 
     // Если memory - отправляем сразу в ClickHouse
     if (this.queueType === 'memory') {
-      const eventsByTable = this.groupEventsByTable(events);
-      for (const [table, tableEvents] of Object.entries(eventsByTable)) {
-        await this.insertToClickHouse(table, tableEvents);
+      this.logger.log(`Memory mode: sending batch to ClickHouse`);
+      try {
+        const eventsByTable = this.groupEventsByTable(events);
+        for (const [table, tableEvents] of Object.entries(eventsByTable)) {
+          this.logger.log(
+            `Memory mode: sending ${tableEvents.length} events to ${table}`,
+          );
+          await this.insertToClickHouse(table, tableEvents);
+        }
+        this.logger.log(`Memory mode: batch sent successfully`);
+      } catch (error) {
+        this.logger.error(
+          `Memory mode: failed to send batch: ${error.message}`,
+        );
       }
     }
 
