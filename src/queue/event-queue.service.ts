@@ -335,11 +335,13 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
   private determineTable(
     event: CreateEventDto,
   ): 'user_events' | 'crm_events' | 'system_events' {
-    if (event.severity || event.event_type.startsWith('system.')) {
-      return 'system_events';
-    }
-    if (event.entity_type || event.crm_user_id) {
+    const firstComponent = event.event_type.split('.')[0];
+
+    if (firstComponent === 'crm') {
       return 'crm_events';
+    }
+    if (firstComponent === 'system') {
+      return 'system_events';
     }
     return 'user_events';
   }
