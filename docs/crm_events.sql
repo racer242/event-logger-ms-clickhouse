@@ -9,7 +9,7 @@ CREATE TABLE event_logger.crm_events
     subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'main',        -- ID подкампании - в рамках кампании может быть несколько подкампаний | API - необязательный
     timestamp       DateTime64(3, 'UTC')    NOT NULL,                       -- Время события | API - обязательный
     session_id      String                  NOT NULL,                       -- ID cессия пользователя | API - обязательный
-    crm_user_id     UUID                    NOT NULL,                       -- ID пользователя CRM | API - обязательный
+    crm_user_id     Nullable(String),                                     -- ID пользователя CRM | API - обязательный
     entity_type     LowCardinality(String)  NOT NULL,                       -- Тип сущности CRM, с которой производится действие | API - обязательный
     entity_id       String                  NOT NULL,                       -- ID в CRM сущности CRM, с которой производится действие | API - обязательный
     action_type     LowCardinality(String)  NOT NULL DEFAULT 'default',     -- Тип действия, производимого над сущностью CRM | API - обязательный

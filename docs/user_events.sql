@@ -16,15 +16,15 @@ CREATE TABLE event_logger.user_events
     -- ============================================
     -- ОПЦИОНАЛЬНЫЕ ДАННЫЕ (в БД обязательно, в API опционально)
     -- ============================================
-    user_id         Nullable(Int64),                                          -- ID пользователя-участника | API - необязательный
-    user_utm        Nullable(String),                                       -- UTM-метка пользователя-участника | API - необязательный
-    crm_user_id     Nullable(Int64),                                         -- ID пользователя CRM | API - необязательный
-    receipt_id      Nullable(Int64),                                         -- ID чека | API - необязательный
-    code            Nullable(String),                                       -- ID кода | API - необязательный
-    activity_id     Nullable(Int64),                                         -- ID активности | API - необязательный
-    activity_type   Nullable(String),                                        -- Тип активности | API - необязательный
-    prize_id        Nullable(Int64),                                         -- ID приза | API - необязательный
-    message_id      Nullable(Int64),                                         -- ID сообщения | API - необязательный
+    user_id         Nullable(String),                                         -- ID пользователя-участника | API - необязательный
+    user_utm        Nullable(String),                                         -- UTM-метка пользователя-участника | API - необязательный
+    crm_user_id     Nullable(String),                                         -- ID пользователя CRM | API - необязательный
+    receipt_id      Nullable(String),                                         -- ID чека | API - необязательный
+    code            Nullable(String),                                         -- ID кода | API - необязательный
+    activity_id     Nullable(String),                                         -- ID активности | API - необязательный
+    activity_type   Nullable(String),                                         -- Тип активности | API - необязательный
+    prize_id        Nullable(String),                                         -- ID приза | API - необязательный
+    message_id      Nullable(String),                                         -- ID сообщения | API - необязательный
     
     -- ============================================
     -- КЛАССИФИКАЦИЯ СОБЫТИЯ
