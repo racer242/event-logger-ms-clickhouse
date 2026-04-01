@@ -330,7 +330,7 @@ export class ClickHouseRepository implements OnModuleInit {
       prize_id: string | null;
       message_id: string | null;
       event_type: string;
-      source: string;
+      source?: string;
       criticality: string;
       payload: Record<string, any>;
     }>,
@@ -358,7 +358,7 @@ export class ClickHouseRepository implements OnModuleInit {
       entity_id: string;
       action_type: string;
       event_type: string;
-      source: string;
+      source?: string;
       criticality: string;
       payload: Record<string, any>;
     }>,

@@ -91,8 +91,9 @@ export class UserEventDto {
   @IsString()
   event_type: string;
 
+  @IsOptional()
   @IsString()
-  source: string;
+  source?: string;
 
   @IsString()
   criticality: string;
@@ -137,8 +138,9 @@ export class CrmEventDto {
   @IsString()
   event_type: string;
 
+  @IsOptional()
   @IsString()
-  source: string;
+  source?: string;
 
   @IsString()
   criticality: string;
@@ -222,8 +224,9 @@ export class CreateEventDto {
   @IsString()
   event_type: string;
 
+  @IsOptional()
   @IsString()
-  source: string;
+  source?: string;
 
   @IsString()
   criticality: string;
