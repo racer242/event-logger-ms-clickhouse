@@ -1,6 +1,14 @@
-import { IsOptional, IsString, IsInt, Min, IsUUID, IsDateString, IsEnum } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  Min,
+  IsUUID,
+  IsDateString,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { Criticality, Severity } from './create-event.dto';
+import { Severity } from './create-event.dto';
 
 export class QueryEventsDto {
   @IsString()
@@ -23,11 +31,11 @@ export class QueryEventsDto {
   event_type?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   user_id?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   crm_user_id?: string;
 
   @IsOptional()
@@ -35,8 +43,8 @@ export class QueryEventsDto {
   session_id?: string;
 
   @IsOptional()
-  @IsEnum(Criticality)
-  criticality?: Criticality;
+  @IsString()
+  criticality?: string;
 
   @IsOptional()
   @IsEnum(Severity)
