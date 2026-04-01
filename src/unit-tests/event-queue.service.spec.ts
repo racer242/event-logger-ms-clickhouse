@@ -4,11 +4,7 @@ import { EventQueueService } from '../queue/event-queue.service';
 import { ClickHouseRepository } from '../clickhouse/clickhouse.repository';
 import { SqliteQueueRepository } from '../queue/sqlite-queue.repository';
 import { RedisQueueRepository } from '../queue/redis-queue.repository';
-import {
-  CreateEventDto,
-  Criticality,
-  Severity,
-} from '../events/dto/create-event.dto';
+import { CreateEventDto, Severity } from '../events/dto/create-event.dto';
 
 describe('EventQueueService', () => {
   let service: EventQueueService;
@@ -87,7 +83,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'registration.complete',
         source: 'auth-service',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         user_id: '12345',
       };
 
@@ -104,7 +100,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'crm.user.create',
         source: 'admin-panel',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         crm_user_id: 'usr-12345',
         entity_type: 'user',
         entity_id: 'usr-12345',
@@ -123,7 +119,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'system.error.api',
         source: 'api-gateway',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         severity: Severity.ERROR,
         instance_id: 'instance-001',
       };
@@ -140,7 +136,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'activity.complete',
         source: 'activity-service',
-        criticality: Criticality.MEDIUM,
+        criticality: 'medium',
         user_id: '12345',
         activity_id: '67890',
       };
@@ -157,7 +153,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'page_view.open',
         source: 'portal-frontend',
-        criticality: Criticality.LOW,
+        criticality: 'low',
       };
 
       const result = await service.enqueue(event);
@@ -174,7 +170,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'registration.complete',
         source: 'auth-service',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         user_id: '12345',
         payload: { registration_method: 'phone' },
       };
@@ -194,7 +190,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'crm.user.create',
         source: 'admin-panel',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         crm_user_id: 'usr-12345',
         entity_type: 'user',
         entity_id: 'usr-12345',
@@ -216,7 +212,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'system.error.db',
         source: 'database-service',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         severity: Severity.ERROR,
         instance_id: 'instance-prod-01',
         error_code: 'DB_CONNECTION_FAILED',
@@ -240,7 +236,7 @@ describe('EventQueueService', () => {
           timestamp: '2026-04-01T12:00:00.000Z',
           event_type: 'page_view.open',
           source: 'portal-frontend',
-          criticality: Criticality.LOW,
+          criticality: 'low',
         },
         {
           client_id: 'client-001',
@@ -249,7 +245,7 @@ describe('EventQueueService', () => {
           timestamp: '2026-04-01T12:00:05.000Z',
           event_type: 'activity.start',
           source: 'activity-service',
-          criticality: Criticality.LOW,
+          criticality: 'low',
           user_id: '12345',
           activity_id: '67890',
         },
@@ -271,7 +267,7 @@ describe('EventQueueService', () => {
           timestamp: '2026-04-01T12:00:00.000Z',
           event_type: 'registration.complete',
           source: 'auth-service',
-          criticality: Criticality.HIGH,
+          criticality: 'high',
           user_id: '12345',
         },
         {
@@ -281,7 +277,7 @@ describe('EventQueueService', () => {
           timestamp: '2026-04-01T12:00:01.000Z',
           event_type: 'crm.user.update',
           source: 'admin-panel',
-          criticality: Criticality.MEDIUM,
+          criticality: 'medium',
           crm_user_id: 'usr-12345',
           entity_type: 'user',
           entity_id: 'usr-12345',
@@ -294,7 +290,7 @@ describe('EventQueueService', () => {
           timestamp: '2026-04-01T12:00:02.000Z',
           event_type: 'system.health.check',
           source: 'monitoring',
-          criticality: Criticality.LOW,
+          criticality: 'low',
           severity: Severity.WARNING,
           instance_id: 'instance-001',
         },
@@ -329,7 +325,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'registration.complete',
         source: 'auth-service',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         user_id: 'usr-12345', // строка, не число
       };
 
@@ -345,7 +341,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'crm.user.create',
         source: 'admin-panel',
-        criticality: Criticality.HIGH,
+        criticality: 'high',
         crm_user_id: 'usr-12345', // строка, не число
         entity_type: 'user',
         entity_id: 'usr-12345',
@@ -364,7 +360,7 @@ describe('EventQueueService', () => {
         timestamp: '2026-04-01T12:00:00.000Z',
         event_type: 'activity.complete',
         source: 'activity-service',
-        criticality: Criticality.MEDIUM,
+        criticality: 'medium',
         user_id: '12345',
         activity_id: 'act-67890', // строка
         prize_id: 'prize-111', // строка

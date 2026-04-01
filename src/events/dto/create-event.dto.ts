@@ -15,12 +15,6 @@ export enum EventTable {
   SYSTEM_EVENTS = 'system_events',
 }
 
-export enum Criticality {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-}
-
 export enum Severity {
   WARNING = 'warning',
   ERROR = 'error',
@@ -100,8 +94,8 @@ export class UserEventDto {
   @IsString()
   source: string;
 
-  @IsEnum(Criticality)
-  criticality: Criticality;
+  @IsString()
+  criticality: string;
 
   // СПЕЦИФИЧЕСКИЕ ДАННЫЕ
   @IsOptional()
@@ -146,8 +140,8 @@ export class CrmEventDto {
   @IsString()
   source: string;
 
-  @IsEnum(Criticality)
-  criticality: Criticality;
+  @IsString()
+  criticality: string;
 
   // СПЕЦИФИЧЕСКИЕ ДАННЫЕ
   @IsOptional()
@@ -184,8 +178,8 @@ export class SystemEventDto {
   @IsString()
   source: string;
 
-  @IsEnum(Criticality)
-  criticality: Criticality;
+  @IsString()
+  criticality: string;
 
   @IsEnum(Severity)
   severity: Severity;
@@ -231,8 +225,8 @@ export class CreateEventDto {
   @IsString()
   source: string;
 
-  @IsEnum(Criticality)
-  criticality: Criticality;
+  @IsString()
+  criticality: string;
 
   @IsOptional()
   @IsString()
