@@ -321,15 +321,15 @@ docker-compose down
 | `portal_id`      | string | ✅           | Портал-источник        |
 | `bot_id`         | string | ✅           | Чат-бот-источник       |
 | `subcampaign_id` | string | ❌           | ID подкампании         |
-| `user_id`        | number | ❌           | ID пользователя        |
+| `user_id`        | string | ❌           | ID пользователя        |
 | `user_utm`       | string | ❌           | UTM-метка пользователя |
-| `crm_user_id`    | number | ❌           | ID пользователя CRM    |
-| `receipt_id`     | number | ❌           | ID чека                |
+| `crm_user_id`    | string | ❌           | ID пользователя CRM    |
+| `receipt_id`     | string | ❌           | ID чека                |
 | `code`           | string | ❌           | Код продукта           |
-| `activity_id`    | number | ❌           | ID активности          |
+| `activity_id`    | string | ❌           | ID активности          |
 | `activity_type`  | string | ❌           | Тип активности         |
-| `prize_id`       | number | ❌           | ID приза               |
-| `message_id`     | number | ❌           | ID сообщения           |
+| `prize_id`       | string | ❌           | ID приза               |
+| `message_id`     | string | ❌           | ID сообщения           |
 | `payload`        | object | ❌           | Дополнительные данные  |
 
 **Примеры event_type:**
@@ -348,7 +348,7 @@ docker-compose down
 
 | Поле             | Тип    | Обязательное | Описание                                        |
 | ---------------- | ------ | ------------ | ----------------------------------------------- |
-| `crm_user_id`    | number | ✅           | ID пользователя CRM                             |
+| `crm_user_id`    | string | ✅           | ID пользователя CRM                             |
 | `entity_type`    | string | ✅           | Тип сущности CRM (user, campaign, prize, etc.)  |
 | `entity_id`      | string | ✅           | ID сущности CRM                                 |
 | `action_type`    | string | ✅           | Тип действия (create, update, delete, moderate) |
@@ -700,7 +700,7 @@ curl -X POST http://localhost:3242/api/v1/events \
 - `table` (required): `user_events`, `crm_events`, `system_events`
 - `campaign_id` (optional): ID кампании (string)
 - `event_type` (optional): Тип события
-- `user_id` (optional): ID пользователя (number)
+- `user_id` (optional): ID пользователя (string)
 - `date_from`, `date_to` (optional): Временной диапазон
 - `limit`, `offset` (optional): Пагинация
 

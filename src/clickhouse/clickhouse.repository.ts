@@ -69,15 +69,15 @@ export class ClickHouseRepository implements OnModuleInit {
             session_id      String                  NOT NULL,
 
             -- ОПЦИОНАЛЬНЫЕ ДАННЫЕ
-            user_id         Nullable(Int64),
+            user_id         Nullable(String),
             user_utm        Nullable(String),
-            crm_user_id     Nullable(Int64),
-            receipt_id      Nullable(Int64),
+            crm_user_id     Nullable(String),
+            receipt_id      Nullable(String),
             code            Nullable(String),
-            activity_id     Nullable(Int64),
+            activity_id     Nullable(String),
             activity_type   Nullable(String),
-            prize_id        Nullable(Int64),
-            message_id      Nullable(Int64),
+            prize_id        Nullable(String),
+            message_id      Nullable(String),
 
             -- КЛАССИФИКАЦИЯ СОБЫТИЯ
             event_type      LowCardinality(String)  NOT NULL,
@@ -167,7 +167,7 @@ export class ClickHouseRepository implements OnModuleInit {
             subcampaign_id  LowCardinality(String)  NOT NULL DEFAULT 'main',
             timestamp       DateTime64(3, 'UTC')    NOT NULL,
             session_id      String                  NOT NULL,
-            crm_user_id     Nullable(Int64),
+            crm_user_id     Nullable(String),
             entity_type     LowCardinality(String)  NOT NULL,
             entity_id       String                  NOT NULL,
             action_type     LowCardinality(String)  NOT NULL DEFAULT 'default',
@@ -320,14 +320,14 @@ export class ClickHouseRepository implements OnModuleInit {
       portal_id: string;
       bot_id: string;
       session_id: string;
-      user_id: number | null;
+      user_id: string | null;
       user_utm: string | null;
-      crm_user_id: number | null;
-      receipt_id: number | null;
+      crm_user_id: string | null;
+      receipt_id: string | null;
       code: string | null;
-      activity_id: number | null;
+      activity_id: string | null;
       activity_type: string | null;
-      prize_id: number | null;
+      prize_id: string | null;
       message_id: string | null;
       event_type: string;
       source: string;
@@ -353,7 +353,7 @@ export class ClickHouseRepository implements OnModuleInit {
       subcampaign_id: string;
       timestamp: string;
       session_id: string;
-      crm_user_id: number | null;
+      crm_user_id: string | null;
       entity_type: string;
       entity_id: string;
       action_type: string;
@@ -425,7 +425,7 @@ export class ClickHouseRepository implements OnModuleInit {
     }
 
     if (filters.user_id) {
-      conditions.push('user_id = {user_id:Int64}');
+      conditions.push('user_id = {user_id:String}');
       params.user_id = filters.user_id;
     }
 
@@ -481,7 +481,7 @@ export class ClickHouseRepository implements OnModuleInit {
     }
 
     if (filters.user_id) {
-      conditions.push('user_id = {user_id:Int64}');
+      conditions.push('user_id = {user_id:String}');
       params.user_id = filters.user_id;
     }
 
@@ -523,12 +523,12 @@ export class ClickHouseRepository implements OnModuleInit {
     );
 
     await this.client.exec({
-      query: `ALTER TABLE ${database}.user_events DELETE WHERE user_id = {userId:Int64}`,
+      query: `ALTER TABLE ${database}.user_events DELETE WHERE user_id = {userId:String}`,
       query_params: { userId },
     });
 
     await this.client.exec({
-      query: `ALTER TABLE ${database}.crm_events DELETE WHERE crm_user_id = {userId:Int64}`,
+      query: `ALTER TABLE ${database}.crm_events DELETE WHERE crm_user_id = {userId:String}`,
       query_params: { userId },
     });
   }

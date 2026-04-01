@@ -4,8 +4,6 @@ import {
   IsUUID,
   IsObject,
   IsEnum,
-  IsNumber,
-  IsInt,
   IsArray,
   ValidateNested,
 } from 'class-validator';
@@ -60,40 +58,40 @@ export class UserEventDto {
   subcampaign_id?: string;
 
   @IsOptional()
-  @IsInt()
-  user_id?: number;
+  @IsString()
+  user_id?: string;
 
   @IsOptional()
   @IsString()
   user_utm?: string;
 
   @IsOptional()
-  @IsInt()
-  crm_user_id?: number;
+  @IsString()
+  crm_user_id?: string;
 
   @IsOptional()
-  @IsInt()
-  receipt_id?: number;
+  @IsString()
+  receipt_id?: string;
 
   @IsOptional()
   @IsString()
   code?: string;
 
   @IsOptional()
-  @IsInt()
-  activity_id?: number;
+  @IsString()
+  activity_id?: string;
 
   @IsOptional()
   @IsString()
   activity_type?: string;
 
   @IsOptional()
-  @IsInt()
-  prize_id?: number;
+  @IsString()
+  prize_id?: string;
 
   @IsOptional()
-  @IsInt()
-  message_id?: number;
+  @IsString()
+  message_id?: string;
 
   // КЛАССИФИКАЦИЯ СОБЫТИЯ
   @IsString()
@@ -129,8 +127,8 @@ export class CrmEventDto {
   @IsString()
   session_id: string;
 
-  @IsInt()
-  crm_user_id: number;
+  @IsString()
+  crm_user_id: string;
 
   @IsString()
   entity_type: string;
@@ -241,8 +239,8 @@ export class CreateEventDto {
   subcampaign_id?: string;
 
   @IsOptional()
-  @IsInt()
-  user_id?: number;
+  @IsString()
+  user_id?: string;
 
   @IsOptional()
   @IsString()
@@ -257,32 +255,32 @@ export class CreateEventDto {
   user_utm?: string;
 
   @IsOptional()
-  @IsInt()
-  crm_user_id?: number;
+  @IsString()
+  crm_user_id?: string;
 
   @IsOptional()
-  @IsInt()
-  receipt_id?: number;
+  @IsString()
+  receipt_id?: string;
 
   @IsOptional()
   @IsString()
   code?: string;
 
   @IsOptional()
-  @IsInt()
-  activity_id?: number;
+  @IsString()
+  activity_id?: string;
 
   @IsOptional()
   @IsString()
   activity_type?: string;
 
   @IsOptional()
-  @IsInt()
-  prize_id?: number;
+  @IsString()
+  prize_id?: string;
 
   @IsOptional()
-  @IsInt()
-  message_id?: number;
+  @IsString()
+  message_id?: string;
 
   @IsOptional()
   @IsString()
