@@ -43,8 +43,9 @@ export class UserEventDto {
   @IsString()
   bot_id: string;
 
+  @IsOptional()
   @IsString()
-  session_id: string;
+  session_id?: string;
 
   // ОПЦИОНАЛЬНЫЕ ДАННЫЕ
   @IsOptional()
@@ -119,8 +120,9 @@ export class CrmEventDto {
   @IsString()
   timestamp: string;
 
+  @IsOptional()
   @IsString()
-  session_id: string;
+  session_id?: string;
 
   @IsString()
   crm_user_id: string;
@@ -218,8 +220,9 @@ export class CreateEventDto {
   @IsString()
   timestamp: string;
 
+  @IsOptional()
   @IsString()
-  session_id: string;
+  session_id?: string;
 
   @IsString()
   event_type: string;

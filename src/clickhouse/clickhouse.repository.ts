@@ -319,7 +319,7 @@ export class ClickHouseRepository implements OnModuleInit {
       timestamp: string;
       portal_id: string;
       bot_id: string;
-      session_id: string;
+      session_id?: string;
       user_id: string | null;
       user_utm: string | null;
       crm_user_id: string | null;
@@ -352,7 +352,7 @@ export class ClickHouseRepository implements OnModuleInit {
       campaign_id: string;
       subcampaign_id: string;
       timestamp: string;
-      session_id: string;
+      session_id?: string;
       crm_user_id: string | null;
       entity_type: string;
       entity_id: string;

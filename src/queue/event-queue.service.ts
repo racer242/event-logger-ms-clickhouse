@@ -263,7 +263,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
               : new Date().toISOString().replace('T', ' ').replace('Z', ''),
             portal_id: e.portal_id || 'unknown',
             bot_id: e.bot_id || 'unknown',
-            session_id: e.session_id,
+            session_id: e.session_id || 'unknown',
             user_id: e.user_id || null,
             user_utm: e.user_utm || null,
             crm_user_id: e.crm_user_id || null,
@@ -293,7 +293,7 @@ export class EventQueueService implements OnModuleInit, OnModuleDestroy {
                   .replace('T', ' ')
                   .replace('Z', '')
               : new Date().toISOString().replace('T', ' ').replace('Z', ''),
-            session_id: e.session_id,
+            session_id: e.session_id || 'unknown',
             crm_user_id: e.crm_user_id || null,
             entity_type: e.entity_type,
             entity_id: e.entity_id,
